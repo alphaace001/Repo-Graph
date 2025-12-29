@@ -10,6 +10,7 @@ from functions.function_metadata import extract_function_metadata
 from functions.ingest_function_to_graph import ingest_functions_to_graph
 from classes.extract_class_metadata import extract_class_metadata
 from classes.ingest_class_to_graph import ingest_classes_to_graph
+from cypherquery_utils import create_import_relationships
 import sys
 from pathlib import Path
 
@@ -144,8 +145,12 @@ def function_to_function_relationships(graph, function_metadata, file_dict):
 
 def process_single_file(
     file_path: str, base_path: str, graph: Neo4jGraph, file_dict: dict
-):
-    """Process a single Python file and ingest it into the graph."""
+) -> list[dict]:
+    """Process a single Python file and ingest it into the graph.
+    
+    Returns:
+        List of codebase imports for later relationship creation
+    """
     logger.info("Starting file processing", extra={"extra_fields": {"file": file_path}})
 
     try:
@@ -203,6 +208,8 @@ def process_single_file(
             "File processing completed successfully",
             extra={"extra_fields": {"file": file_path}},
         )
+        
+        return codebase_imports
 
     except Exception as e:
         logger.error(
@@ -227,11 +234,13 @@ def ingest_all_files():
         success_count = 0
         error_count = 0
         errors = []
+        all_imports = {}  # Store imports for each file
 
         for idx, file_path in enumerate(files, 1):
             with LogContext(logger=logger):  # New correlation ID for each file
                 try:
-                    process_single_file(file_path, path, graph, file_dict)
+                    codebase_imports = process_single_file(file_path, path, graph, file_dict)
+                    all_imports[file_path] = codebase_imports
                     success_count += 1
                     log_with_context(
                         logger,
@@ -266,6 +275,29 @@ def ingest_all_files():
                     "success_rate": f"{(success_count/len(files)*100):.2f}%",
                 }
             },
+        )
+
+        # Create import relationships after all modules are created
+        logger.info("Creating module import relationships", extra={"extra_fields": {"total_files": len(all_imports)}})
+        relationship_count = 0
+        for file_path, codebase_imports in all_imports.items():
+            try:
+                create_import_relationships(file_path, codebase_imports, file_dict, graph)
+                relationship_count += len(codebase_imports)
+                logger.debug(
+                    "Import relationships created",
+                    extra={"extra_fields": {"file": file_path, "import_count": len(codebase_imports)}}
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to create import relationships: {str(e)}",
+                    extra={"extra_fields": {"file": file_path}},
+                    exc_info=True
+                )
+        
+        logger.info(
+            "Import relationships creation completed",
+            extra={"extra_fields": {"total_relationships": relationship_count}}
         )
 
         if errors:

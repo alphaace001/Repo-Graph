@@ -1,6 +1,7 @@
 import ast
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import setup_logger
 
@@ -224,18 +225,23 @@ def extract_function_metadata(tree, codebase_lookup, library_lookup):
 
             functions.append(func_info)
             functions.extend(nested)
-            
-            logger.debug("Function metadata extracted", 
-                        extra={'extra_fields': {
-                            'function': node.name,
-                            'nested_count': len(nested)
-                        }})
-            
+
+            logger.debug(
+                "Function metadata extracted",
+                extra={
+                    "extra_fields": {"function": node.name, "nested_count": len(nested)}
+                },
+            )
+
         except Exception as e:
-            logger.warning(f"Failed to extract metadata for function: {str(e)}", 
-                          extra={'extra_fields': {'function': getattr(node, 'name', 'unknown')}})
+            logger.warning(
+                f"Failed to extract metadata for function: {str(e)}",
+                extra={"extra_fields": {"function": getattr(node, "name", "unknown")}},
+            )
             continue
 
-    logger.info("Function metadata extraction completed", 
-               extra={'extra_fields': {'total_functions': len(functions)}})
+    logger.info(
+        "Function metadata extraction completed",
+        extra={"extra_fields": {"total_functions": len(functions)}},
+    )
     return functions
