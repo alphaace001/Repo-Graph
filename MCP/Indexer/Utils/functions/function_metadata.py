@@ -1,38 +1,30 @@
 import ast
 import sys
 from pathlib import Path
+from typing import Dict
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import setup_logger
+from common import classify_symbol, collect_ast_walk_symbols, extract_name_from_ast_node
 
 logger = setup_logger(__name__)
 
 
-def extract_arg_annotation(arg, lookup):
-    """Extract annotation display string from function argument."""
+def extract_arg_annotation(arg: ast.arg, codebase_lookup: Dict) -> Dict[str, str]:
+    """
+    Extract annotation display string from function argument.
+    
+    Args:
+        arg: Function argument node
+        codebase_lookup: Dictionary of codebase symbols for resolving types
+    
+    Returns:
+        Dictionary with annotation_display key
+    """
     if not arg.annotation:
-        return {
-            "annotation_display": None,
-        }
+        return {"annotation_display": None}
 
-    return {
-        "annotation_display": ast.unparse(arg.annotation),
-    }
-
-
-def classify_call(name, codebase_lookup, library_lookup):
-    """
-    Resolve symbol to either codebase or library lookup.
-    Returns tuple: (group_name, fq_name) or (None, None)
-    """
-
-    if name in codebase_lookup:
-        return "codebase", codebase_lookup[name]
-
-    if name in library_lookup:
-        return "library", library_lookup[name]
-
-    return None, None
+    return {"annotation_display": ast.unparse(arg.annotation)}
 
 
 def _create_function_info_structure(node, parent_function=None):
@@ -86,19 +78,26 @@ def _extract_function_arguments(node, codebase_lookup):
     return args
 
 
-def _extract_decorators(node, codebase_lookup, library_lookup):
-    """Extract decorator information from a function node."""
+def _extract_decorators(node: ast.AST, codebase_lookup: Dict[str, str], library_lookup: Dict[str, str]) -> list:
+    """
+    Extract decorator information from a function node.
+    
+    Args:
+        node: Function node
+        codebase_lookup: Codebase symbol lookup
+        library_lookup: Library symbol lookup
+    
+    Returns:
+        List of decorator information dictionaries
+    """
     decorators = []
 
     for dec in node.decorator_list:
-        if isinstance(dec, ast.Name):
-            name = dec.id
-        elif isinstance(dec, ast.Attribute):
-            name = dec.attr
-        else:
+        name = extract_name_from_ast_node(dec)
+        if not name:
             continue
 
-        group, fq = classify_call(name, codebase_lookup, library_lookup)
+        group, fq = classify_symbol(name, codebase_lookup, library_lookup)
 
         if fq:
             decorators.append(
@@ -112,36 +111,21 @@ def _extract_decorators(node, codebase_lookup, library_lookup):
     return decorators
 
 
-def _extract_function_calls(node, codebase_lookup, library_lookup):
-    """Extract all function/symbol calls from the function body."""
-    used_codebase = set()
-    used_library = set()
-
-    for inner in ast.walk(node):
-        symbol = None
-
-        if isinstance(inner, ast.Name):
-            symbol = inner.id
-        elif isinstance(inner, ast.Attribute):
-            symbol = inner.attr
-
-        if not symbol:
-            continue
-
-        group, fq = classify_call(symbol, codebase_lookup, library_lookup)
-
-        if not fq:
-            continue
-
-        if group == "codebase":
-            used_codebase.add(fq)
-        elif group == "library":
-            used_library.add(fq)
-
-    return {
-        "codebase": sorted(used_codebase),
-        "library": sorted(used_library),
-    }
+def _extract_function_calls(
+    node: ast.AST, codebase_lookup: Dict[str, str], library_lookup: Dict[str, str]
+) -> Dict[str, list]:
+    """
+    Extract all function/symbol calls from the function body.
+    
+    Args:
+        node: Function node
+        codebase_lookup: Codebase symbol lookup
+        library_lookup: Library symbol lookup
+    
+    Returns:
+        Dictionary with 'codebase' and 'library' keys containing called symbols
+    """
+    return collect_ast_walk_symbols(node, codebase_lookup, library_lookup)
 
 
 def extract_nested_functions(node, codebase_lookup, library_lookup, parent_name):

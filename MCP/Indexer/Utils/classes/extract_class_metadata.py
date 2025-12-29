@@ -1,27 +1,19 @@
 import ast
 import sys
 from pathlib import Path
-from functions.function_metadata import extract_function_metadata
+from typing import Dict, Set
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import setup_logger
+from common import classify_symbol, extract_dotted_name_from_node
 
 logger = setup_logger(__name__)
 
-
-def classify_call(name, codebase_lookup, library_lookup):
-    """
-    Resolve symbol to either codebase or library lookup.
-    Returns tuple: (group_name, fq_name) or (None, None)
-    """
-
-    if name in codebase_lookup:
-        return "codebase", codebase_lookup[name]
-
-    if name in library_lookup:
-        return "library", library_lookup[name]
-
-    return None, None
+# Import from local relative path
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from functions.function_metadata import extract_function_metadata
 
 
 def extract_method_metadata_from_body(body, lookup_codebase, lookup_library):
@@ -30,24 +22,17 @@ def extract_method_metadata_from_body(body, lookup_codebase, lookup_library):
     return extract_function_metadata(fake_module, lookup_codebase, lookup_library)
 
 
-def get_base_name(node):
-    """Extract the base class name from an AST node."""
-    # Base
-    if isinstance(node, ast.Name):
-        return node.id
-
-    # package.Base
-    if isinstance(node, ast.Attribute):
-        parts = []
-        while isinstance(node, ast.Attribute):
-            parts.append(node.attr)
-            node = node.value
-        if isinstance(node, ast.Name):
-            parts.append(node.id)
-        parts.reverse()
-        return ".".join(parts)
-
-    return None
+def get_base_name(node: ast.expr) -> str:
+    """
+    Extract the base class name from an AST node.
+    
+    Args:
+        node: AST node representing a base class
+    
+    Returns:
+        The base class name or None
+    """
+    return extract_dotted_name_from_node(node)
 
 
 def _collect_local_classes(tree):
@@ -73,8 +58,20 @@ def _create_class_info_structure(node):
     }
 
 
-def _extract_decorators(node, lookup_codebase, lookup_library):
-    """Extract decorator information from a class node."""
+def _extract_decorators(
+    node: ast.ClassDef, lookup_codebase: Dict[str, str], lookup_library: Dict[str, str]
+) -> list:
+    """
+    Extract decorator information from a class node.
+    
+    Args:
+        node: Class node
+        lookup_codebase: Codebase symbol lookup
+        lookup_library: Library symbol lookup
+    
+    Returns:
+        List of decorator information dictionaries
+    """
     decorators = []
 
     for dec in node.decorator_list:
@@ -85,7 +82,7 @@ def _extract_decorators(node, lookup_codebase, lookup_library):
         else:
             continue
 
-        group, fq = classify_call(name, lookup_codebase, lookup_library)
+        group, fq = classify_symbol(name, lookup_codebase, lookup_library)
 
         if fq:
             decorators.append(
@@ -99,8 +96,21 @@ def _extract_decorators(node, lookup_codebase, lookup_library):
     return decorators
 
 
-def _extract_base_classes(node, local_classes, lookup, current_file):
-    """Extract base class information from a class node."""
+def _extract_base_classes(
+    node: ast.ClassDef, local_classes: Set[str], lookup: Dict[str, str], current_file: str
+) -> list:
+    """
+    Extract base class information from a class node.
+    
+    Args:
+        node: Class node
+        local_classes: Set of class names defined in the current file
+        lookup: Combined codebase and library symbol lookup
+        current_file: Current file path
+    
+    Returns:
+        List of base class information dictionaries
+    """
     base_classes = []
 
     for base in node.bases:
@@ -126,8 +136,16 @@ def _extract_base_classes(node, local_classes, lookup, current_file):
     return base_classes
 
 
-def _extract_class_attributes(node):
-    """Extract class-level attributes from a class node."""
+def _extract_class_attributes(node: ast.ClassDef) -> list:
+    """
+    Extract class-level attributes from a class node.
+    
+    Args:
+        node: Class node
+    
+    Returns:
+        List of attribute information dictionaries
+    """
     attributes = []
 
     for item in node.body:
@@ -166,9 +184,25 @@ def _extract_class_attributes(node):
 
 
 def _process_single_class(
-    node, lookup_codebase, lookup_library, local_classes, current_file
-):
-    """Process a single ClassDef node and extract all its metadata."""
+    node: ast.ClassDef,
+    lookup_codebase: Dict[str, str],
+    lookup_library: Dict[str, str],
+    local_classes: Set[str],
+    current_file: str,
+) -> Dict:
+    """
+    Process a single ClassDef node and extract all its metadata.
+    
+    Args:
+        node: Class definition node
+        lookup_codebase: Codebase symbol lookup
+        lookup_library: Library symbol lookup
+        local_classes: Set of classes defined in current file
+        current_file: Current file path
+    
+    Returns:
+        Dictionary containing class metadata
+    """
     lookup = lookup_codebase | lookup_library
 
     class_info = _create_class_info_structure(node)
@@ -196,8 +230,21 @@ def _process_single_class(
     return class_info
 
 
-def extract_class_metadata(tree, lookup_codebase, lookup_library, current_file):
-    """Extract metadata for all classes in the AST tree."""
+def extract_class_metadata(
+    tree: ast.Module, lookup_codebase: Dict[str, str], lookup_library: Dict[str, str], current_file: str
+) -> list:
+    """
+    Extract metadata for all classes in the AST tree.
+    
+    Args:
+        tree: AST module node
+        lookup_codebase: Codebase symbol lookup
+        lookup_library: Library symbol lookup
+        current_file: Current file path
+    
+    Returns:
+        List of class metadata dictionaries
+    """
     logger.debug("Starting class metadata extraction")
 
     # First pass: collect ALL classes in the file (including nested ones)

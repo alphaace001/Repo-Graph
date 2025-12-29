@@ -1,7 +1,11 @@
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import setup_logger
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from graph_operations import GraphOperations
 
 logger = setup_logger(__name__)
 
@@ -139,20 +143,29 @@ def _create_parameter_nodes(graph, method_id, args):
         )
 
 
-def _ingest_class_methods(graph, class_id, class_name, methods, file_dict):
-    """Ingests all methods of a class into the graph."""
+def _ingest_class_methods(ops: GraphOperations, class_id: str, class_name: str, methods: list, file_dict: dict) -> None:
+    """
+    Ingest all methods of a class into the graph.
+    
+    Args:
+        ops: GraphOperations instance
+        class_id: Element ID of the parent class
+        class_name: Name of the parent class
+        methods: List of method metadata dictionaries
+        file_dict: Dictionary mapping module names to file paths
+    """
     for method in methods:
-        method_id = _create_method_node(graph, class_id, class_name, method)
+        method_id = _create_method_node(ops.graph, class_id, class_name, method)
 
         # Create method docstring
-        _create_docstring_node(graph, method_id, "Method", method.get("docstring"))
+        ops.create_docstring("Method", method_id, method.get("docstring"))
 
         # Create parameter nodes
-        _create_parameter_nodes(graph, method_id, method.get("args", []))
+        _create_parameter_nodes(ops.graph, method_id, method.get("args", []))
 
         # Create decorator relationships
         for dec in method.get("decorators", []):
-            _create_decorator_relationship(graph, method_id, "Method", dec, file_dict)
+            _create_decorator_relationship(ops.graph, method_id, "Method", dec, file_dict)
 
 
 def _create_module_class_relationship(graph, class_id, module_id):
@@ -174,32 +187,41 @@ def _create_module_class_relationship(graph, class_id, module_id):
     )
 
 
-def ingest_classes_to_graph(classes, graph, file_dict, module_id):
+def ingest_classes_to_graph(classes: list, graph, file_dict: dict, module_id: str) -> None:
     """
+    Ingest class metadata into the graph database.
+    
     Creates Class, Method, Docstring, Parameter nodes and relationships
     from extracted class metadata.
+    
+    Args:
+        classes: List of class metadata dictionaries
+        graph: Neo4jGraph instance
+        file_dict: Dictionary mapping module names to file paths
+        module_id: Element ID of the parent module
     """
     logger.debug("Starting class ingestion", extra={'extra_fields': {'class_count': len(classes)}})
+    
+    ops = GraphOperations(graph)
     
     for cls in classes:
         try:
             logger.debug("Processing class", extra={'extra_fields': {'class': cls["name"]}})
             
-            # Create Class node
-            class_id = _create_class_node(graph, cls)
+            # Create Class node using GraphOperations
+            class_properties = {
+                "name": cls["name"],
+                "start_line": cls["start_line"],
+                "end_line": cls["end_line"],
+            }
+            class_id = ops.create_or_merge_node("Class", class_properties)
 
             # Create class docstring
-            _create_docstring_node(graph, class_id, "Class", cls.get("docstring"))
-
-            # Create class decorator relationships
-            # for dec in cls.get("decorators", []):
-            #     _create_decorator_relationship(graph, class_id, "Class", dec, file_dict)
+            ops.create_docstring("Class", class_id, cls.get("docstring"))
 
             # Ingest all methods
             method_count = len(cls.get("methods", []))
-            _ingest_class_methods(
-                graph, class_id, cls["name"], cls.get("methods", []), file_dict
-            )
+            _ingest_class_methods(ops, class_id, cls["name"], cls.get("methods", []), file_dict)
             
             logger.debug("Methods ingested", 
                         extra={'extra_fields': {
@@ -208,7 +230,7 @@ def ingest_classes_to_graph(classes, graph, file_dict, module_id):
                         }})
 
             # Create module-class relationship
-            _create_module_class_relationship(graph, class_id, module_id)
+            ops.create_contains_relationship("Module", module_id, "Class", class_id)
             
             logger.debug("Class processed successfully", 
                         extra={'extra_fields': {'class': cls["name"]}})

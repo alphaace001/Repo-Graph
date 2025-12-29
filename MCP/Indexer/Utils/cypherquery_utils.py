@@ -1,8 +1,19 @@
+"""
+Cypher query utilities for creating relationships in Neo4j graph.
+"""
+import sys
+from pathlib import Path
+from typing import Dict, List
+
+sys.path.insert(0, str(Path(__file__).parent))
+from graph_operations import GraphOperations
+
+
 def create_import_relationships(
-    current_file: str, codebase_imports: list[dict], repo_modules: dict, graph
-):
+    current_file: str, codebase_imports: List[Dict], repo_modules: Dict, graph
+) -> None:
     """
-    Creates IMPORTS relationships from current module to imported modules.
+    Create IMPORTS relationships from current module to imported modules.
 
     Args:
         current_file: The current module file path (e.g., "fastapi/routing.py")
@@ -10,6 +21,8 @@ def create_import_relationships(
         repo_modules: Dictionary mapping module paths to file paths
         graph: Neo4jGraph instance
     """
+    ops = GraphOperations(graph)
+    
     for imp in codebase_imports:
         module_name = imp.get("module")
 
@@ -22,15 +35,5 @@ def create_import_relationships(
         if not target_file:
             continue
 
-        # Create IMPORTS relationship
-        graph.query(
-            """
-            MATCH (source:Module {name: $source_file})
-            MATCH (target:Module {name: $target_file})
-            MERGE (source)-[:IMPORTS]->(target)
-            """,
-            {
-                "source_file": current_file,
-                "target_file": target_file,
-            },
-        )
+        # Create IMPORTS relationship using GraphOperations
+        ops.create_import_relationship(current_file, target_file)
