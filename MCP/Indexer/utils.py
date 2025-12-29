@@ -1,4 +1,9 @@
+import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from logger import setup_logger
+
+logger = setup_logger(__name__)
 
 SKIP_DIRS = {
     ".venv",
@@ -16,6 +21,8 @@ SKIP_DIRS = {
 
 
 def discover_py_files(root: str):
+    """Discover all Python files in the given directory."""
+    logger.debug("Starting file discovery", extra={'extra_fields': {'root': root}})
     root = Path(root).resolve()
 
     results = []
@@ -42,14 +49,29 @@ def discover_py_files(root: str):
 
         results.append(rel)
 
+    logger.info("File discovery completed", 
+               extra={'extra_fields': {'file_count': len(results), 'root': root}})
     return results
 
 
 def load_code(path: Path) -> str:
-    path = Path(path)
-    if path.is_dir():
-        path = path / "__init__.py"
-    return path.read_text(encoding="utf-8")
+    """Load Python source code from a file."""
+    try:
+        path = Path(path)
+        if path.is_dir():
+            path = path / "__init__.py"
+        
+        logger.debug("Loading code", extra={'extra_fields': {'path': str(path)}})
+        code = path.read_text(encoding="utf-8")
+        logger.debug("Code loaded successfully", 
+                    extra={'extra_fields': {'path': str(path), 'size': len(code)}})
+        return code
+        
+    except Exception as e:
+        logger.error(f"Failed to load code: {str(e)}", 
+                    extra={'extra_fields': {'path': str(path)}}, 
+                    exc_info=True)
+        raise
 
 
 def convert_file_paths_to_modules(file_paths: list[str]) -> dict:

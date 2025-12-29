@@ -1,5 +1,6 @@
 import ast
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 from utils import discover_py_files, load_code, convert_file_paths_to_modules
@@ -9,11 +10,19 @@ from functions.function_metadata import extract_function_metadata
 from functions.ingest_function_to_graph import ingest_functions_to_graph
 from classes.extract_class_metadata import extract_class_metadata
 from classes.ingest_class_to_graph import ingest_classes_to_graph
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from logger import setup_logger, LogContext, log_with_context
 
 from langchain_neo4j import Neo4jGraph
 
 # Load environment variables
 load_dotenv()
+
+# Setup logger
+logger = setup_logger(__name__)
 
 graph = Neo4jGraph(
     url=os.getenv("NEO4J_URL"),
@@ -30,34 +39,63 @@ def build_module_node(
     graph: Neo4jGraph, current_file: str, code: str, module_docstring: str
 ):
     """Build a Module node and return its element ID."""
-    query = """
-    MERGE (m:Module {name: $name})
-    SET m.content = $content
+    logger.debug("Building module node", extra={"extra_fields": {"file": current_file}})
 
-    WITH m, $doc_text AS doc_text, $doc_name AS doc_name
-    WHERE doc_text IS NOT NULL AND doc_text <> ""
-
-    MERGE (d:Docstring {name: doc_name})
-    SET d.text = doc_text
-
-    MERGE (m)-[:DOCUMENTED_BY]->(d)
-
-    RETURN elementId(m) as module_id
-    """
     module_name = current_file
     content = code
-    doc_name = f"{module_name}_docstring"
-    doc_text = module_docstring
-    result = graph.query(
-        query,
-        {
-            "name": module_name,
-            "content": content,
-            "doc_name": doc_name,
-            "doc_text": doc_text,
-        },
-    )
-    return result[0]["module_id"]
+
+    try:
+        # First, create/merge the module without docstring condition
+        result = graph.query(
+            """
+            MERGE (m:Module {name: $name})
+            SET m.content = $content
+            RETURN elementId(m) as module_id
+            """,
+            {
+                "name": module_name,
+                "content": content,
+            },
+        )
+
+        if not result or len(result) == 0:
+            raise ValueError(f"Failed to create module node for {current_file}")
+
+        module_id = result[0]["module_id"]
+
+        # Then, create docstring relationship if docstring exists
+        if module_docstring and module_docstring.strip():
+            doc_name = f"{module_name}_docstring"
+            graph.query(
+                """
+                MATCH (m:Module)
+                WHERE elementId(m) = $module_id
+                
+                MERGE (d:Docstring {name: $doc_name})
+                SET d.content = $doc_text
+                
+                MERGE (m)-[:DOCUMENTED_BY]->(d)
+                """,
+                {
+                    "module_id": module_id,
+                    "doc_name": doc_name,
+                    "doc_text": module_docstring,
+                },
+            )
+
+        logger.info(
+            "Module node created successfully",
+            extra={"extra_fields": {"file": current_file, "module_id": module_id}},
+        )
+        return module_id
+
+    except Exception as e:
+        logger.error(
+            f"Failed to create module node: {str(e)}",
+            extra={"extra_fields": {"file": current_file}},
+            exc_info=True,
+        )
+        raise
 
 
 def function_to_function_relationships(graph, function_metadata, file_dict):
@@ -108,35 +146,71 @@ def process_single_file(
     file_path: str, base_path: str, graph: Neo4jGraph, file_dict: dict
 ):
     """Process a single Python file and ingest it into the graph."""
-    print(f"Processing: {file_path}")
+    logger.info("Starting file processing", extra={"extra_fields": {"file": file_path}})
 
-    # Load and parse the file
-    code = load_code(Path(base_path) / file_path)
-    ast_code = ast.parse(code)
-    file_docstring = ast.get_docstring(ast_code)
+    try:
+        # Load and parse the file
+        logger.debug(
+            "Loading and parsing file", extra={"extra_fields": {"file": file_path}}
+        )
+        code = load_code(Path(base_path) / file_path)
+        ast_code = ast.parse(code)
+        file_docstring = ast.get_docstring(ast_code)
 
-    # Build module node and get its ID
-    module_id = build_module_node(graph, file_path, code, file_docstring)
+        # Build module node and get its ID
+        module_id = build_module_node(graph, file_path, code, file_docstring)
 
-    # Extract imports
-    imports = collect_grouped_imports(ast_code)
-    codebase_imports, library_imports = classify_imports(imports, file_dict)
+        # Extract imports
+        logger.debug("Extracting imports", extra={"extra_fields": {"file": file_path}})
+        imports = collect_grouped_imports(ast_code)
+        codebase_imports, library_imports = classify_imports(imports, file_dict)
 
-    # Build symbol lookups
-    lookup_codebase = build_codebase_symbol_lookup(codebase_imports)
-    lookup_library = build_codebase_symbol_lookup(library_imports)
+        # Build symbol lookups
+        lookup_codebase = build_codebase_symbol_lookup(codebase_imports)
+        lookup_library = build_codebase_symbol_lookup(library_imports)
 
-    # Extract and ingest functions
-    function_metadata = extract_function_metadata(
-        ast_code, lookup_codebase, lookup_library
-    )
-    ingest_functions_to_graph(function_metadata, graph, file_dict, module_id)
+        # Extract and ingest functions
+        logger.debug(
+            "Processing functions", extra={"extra_fields": {"file": file_path}}
+        )
+        function_metadata = extract_function_metadata(
+            ast_code, lookup_codebase, lookup_library
+        )
+        ingest_functions_to_graph(function_metadata, graph, file_dict, module_id)
+        log_with_context(
+            logger,
+            logging.INFO,
+            "Functions ingested",
+            file=file_path,
+            function_count=len(function_metadata),
+        )
 
-    # Extract and ingest classes
-    class_metadata = extract_class_metadata(
-        ast_code, lookup_codebase, lookup_library, file_path
-    )
-    ingest_classes_to_graph(class_metadata, graph, file_dict, module_id)
+        # Extract and ingest classes
+        logger.debug("Processing classes", extra={"extra_fields": {"file": file_path}})
+        class_metadata = extract_class_metadata(
+            ast_code, lookup_codebase, lookup_library, file_path
+        )
+        ingest_classes_to_graph(class_metadata, graph, file_dict, module_id)
+        log_with_context(
+            logger,
+            logging.INFO,
+            "Classes ingested",
+            file=file_path,
+            class_count=len(class_metadata),
+        )
+
+        logger.info(
+            "File processing completed successfully",
+            extra={"extra_fields": {"file": file_path}},
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Error processing file: {str(e)}",
+            extra={"extra_fields": {"file": file_path}},
+            exc_info=True,
+        )
+        raise
 
     # Create function-to-function relationships
     # function_to_function_relationships(graph, function_metadata, file_dict)
@@ -144,17 +218,61 @@ def process_single_file(
 
 def ingest_all_files():
     """Ingest all Python files from the codebase into the graph."""
-    print(f"Found {len(files)} Python files to process")
+    with LogContext(logger=logger) as correlation_id:
+        logger.info(
+            "Starting batch file ingestion",
+            extra={"extra_fields": {"total_files": len(files), "path": path}},
+        )
 
-    for idx, file_path in enumerate(files, 1):
-        try:
-            process_single_file(file_path, path, graph, file_dict)
-            print(f"✓ Completed {idx}/{len(files)}: {file_path}")
-        except Exception as e:
-            print(f"✗ Error processing {file_path}: {str(e)}")
-            continue
+        success_count = 0
+        error_count = 0
+        errors = []
 
-    print(f"\n✓ Finished processing all files!")
+        for idx, file_path in enumerate(files, 1):
+            with LogContext(logger=logger):  # New correlation ID for each file
+                try:
+                    process_single_file(file_path, path, graph, file_dict)
+                    success_count += 1
+                    log_with_context(
+                        logger,
+                        logging.INFO,
+                        "File completed",
+                        progress=f"{idx}/{len(files)}",
+                        file=file_path,
+                        status="success",
+                    )
+                except Exception as e:
+                    error_count += 1
+                    error_msg = str(e)
+                    errors.append({"file": file_path, "error": error_msg})
+                    log_with_context(
+                        logger,
+                        logging.ERROR,
+                        "File failed",
+                        progress=f"{idx}/{len(files)}",
+                        file=file_path,
+                        status="error",
+                        error=error_msg,
+                    )
+                    continue
+
+        logger.info(
+            "Batch ingestion completed",
+            extra={
+                "extra_fields": {
+                    "total_files": len(files),
+                    "success_count": success_count,
+                    "error_count": error_count,
+                    "success_rate": f"{(success_count/len(files)*100):.2f}%",
+                }
+            },
+        )
+
+        if errors:
+            logger.warning(
+                f"Encountered {error_count} errors during ingestion",
+                extra={"extra_fields": {"errors": errors[:10]}},
+            )  # Log first 10 errors
 
 
 if __name__ == "__main__":

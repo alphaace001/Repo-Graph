@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from logger import setup_logger
+
+logger = setup_logger(__name__)
+
+
 def _create_class_node(graph, cls):
     """Creates a Class node in the graph and returns its ID."""
     result = graph.query(
@@ -171,21 +179,45 @@ def ingest_classes_to_graph(classes, graph, file_dict, module_id):
     Creates Class, Method, Docstring, Parameter nodes and relationships
     from extracted class metadata.
     """
+    logger.debug("Starting class ingestion", extra={'extra_fields': {'class_count': len(classes)}})
+    
     for cls in classes:
-        # Create Class node
-        class_id = _create_class_node(graph, cls)
+        try:
+            logger.debug("Processing class", extra={'extra_fields': {'class': cls["name"]}})
+            
+            # Create Class node
+            class_id = _create_class_node(graph, cls)
 
-        # Create class docstring
-        _create_docstring_node(graph, class_id, "Class", cls.get("docstring"))
+            # Create class docstring
+            _create_docstring_node(graph, class_id, "Class", cls.get("docstring"))
 
-        # Create class decorator relationships
-        # for dec in cls.get("decorators", []):
-        #     _create_decorator_relationship(graph, class_id, "Class", dec, file_dict)
+            # Create class decorator relationships
+            # for dec in cls.get("decorators", []):
+            #     _create_decorator_relationship(graph, class_id, "Class", dec, file_dict)
 
-        # Ingest all methods
-        _ingest_class_methods(
-            graph, class_id, cls["name"], cls.get("methods", []), file_dict
-        )
+            # Ingest all methods
+            method_count = len(cls.get("methods", []))
+            _ingest_class_methods(
+                graph, class_id, cls["name"], cls.get("methods", []), file_dict
+            )
+            
+            logger.debug("Methods ingested", 
+                        extra={'extra_fields': {
+                            'class': cls["name"], 
+                            'method_count': method_count
+                        }})
 
-        # Create module-class relationship
-        _create_module_class_relationship(graph, class_id, module_id)
+            # Create module-class relationship
+            _create_module_class_relationship(graph, class_id, module_id)
+            
+            logger.debug("Class processed successfully", 
+                        extra={'extra_fields': {'class': cls["name"]}})
+            
+        except Exception as e:
+            logger.error(f"Failed to process class: {str(e)}", 
+                        extra={'extra_fields': {'class': cls["name"]}}, 
+                        exc_info=True)
+            raise
+    
+    logger.info("Class ingestion completed", 
+               extra={'extra_fields': {'total_classes': len(classes)}})

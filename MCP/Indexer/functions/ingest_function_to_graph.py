@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from logger import setup_logger
+
+logger = setup_logger(__name__)
+
+
 def _build_function_index(functions):
     """Build an index of functions by (name, parent_function) key."""
     index = {}
@@ -183,6 +191,8 @@ def _create_module_function_relationship(graph, func_id, module_id):
 
 def ingest_functions_to_graph(functions, graph, file_dict, module_id):
     """Ingest function metadata into the graph database."""
+    logger.debug("Starting function ingestion", extra={'extra_fields': {'function_count': len(functions)}})
+    
     index = _build_function_index(functions)
     processed = set()
     func_id_cache = {}
@@ -194,33 +204,56 @@ def ingest_functions_to_graph(functions, graph, file_dict, module_id):
             return func_id_cache.get(key)
 
         processed.add(key)
+        
+        logger.debug("Processing function", 
+                    extra={'extra_fields': {
+                        'function': fn["name"],
+                        'parent': fn.get("parent_function"),
+                        'is_nested': fn.get("parent_function") is not None
+                    }})
 
-        # Create function node
-        func_id = _merge_function_node(graph, fn)
-        func_id_cache[key] = func_id
+        try:
+            # Create function node
+            func_id = _merge_function_node(graph, fn)
+            func_id_cache[key] = func_id
 
-        # Create module-function relationship for top-level functions only
-        if fn.get("parent_function") is None:
-            _create_module_function_relationship(graph, func_id, module_id)
+            # Create module-function relationship for top-level functions only
+            if fn.get("parent_function") is None:
+                _create_module_function_relationship(graph, func_id, module_id)
 
-        # Create docstring
-        _create_docstring_node(graph, func_id, fn.get("docstring"))
+            # Create docstring
+            _create_docstring_node(graph, func_id, fn.get("docstring"))
 
-        # Create parameters
-        _create_parameter_nodes(graph, func_id, fn.get("args", []))
+            # Create parameters
+            _create_parameter_nodes(graph, func_id, fn.get("args", []))
 
-        # Create decorator relationships
-        # _create_decorator_relationships(
-        #     graph, func_id, fn.get("decorators", []), file_dict
-        # )
+            # Create decorator relationships
+            # _create_decorator_relationships(
+            #     graph, func_id, fn.get("decorators", []), file_dict
+            # )
 
-        # Create depends_on relationships
-        _create_depends_on_relationships(
-            graph, func_id, fn, index, ensure_function, file_dict
-        )
+            # Create depends_on relationships
+            _create_depends_on_relationships(
+                graph, func_id, fn, index, ensure_function, file_dict
+            )
+            
+            logger.debug("Function processed successfully", 
+                        extra={'extra_fields': {'function': fn["name"]}})
 
-        return func_id
+            return func_id
+            
+        except Exception as e:
+            logger.error(f"Failed to process function: {str(e)}", 
+                        extra={'extra_fields': {'function': fn["name"]}}, 
+                        exc_info=True)
+            raise
 
     # Process all functions
     for fn in functions:
         ensure_function(fn, file_dict)
+    
+    logger.info("Function ingestion completed", 
+               extra={'extra_fields': {
+                   'total_functions': len(functions),
+                   'processed_count': len(processed)
+               }})

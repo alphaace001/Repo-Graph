@@ -1,5 +1,12 @@
 import ast
+import sys
+from pathlib import Path
 from functions.function_metadata import extract_function_metadata
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 def classify_call(name, codebase_lookup, library_lookup):
@@ -191,8 +198,14 @@ def _process_single_class(
 
 def extract_class_metadata(tree, lookup_codebase, lookup_library, current_file):
     """Extract metadata for all classes in the AST tree."""
+    logger.debug("Starting class metadata extraction")
+
     # First pass: collect ALL classes in the file (including nested ones)
     local_classes = _collect_local_classes(tree)
+    logger.debug(
+        "Local classes collected",
+        extra={"extra_fields": {"local_class_count": len(local_classes)}},
+    )
 
     classes = []
 
@@ -202,9 +215,32 @@ def extract_class_metadata(tree, lookup_codebase, lookup_library, current_file):
         if not isinstance(node, ast.ClassDef):
             continue
 
-        class_info = _process_single_class(
-            node, lookup_codebase, lookup_library, local_classes, current_file
-        )
-        classes.append(class_info)
+        try:
+            class_info = _process_single_class(
+                node, lookup_codebase, lookup_library, local_classes, current_file
+            )
+            classes.append(class_info)
 
+            logger.debug(
+                "Class metadata extracted",
+                extra={
+                    "extra_fields": {
+                        "class": node.name,
+                        "method_count": len(class_info.get("methods", [])),
+                        "base_count": len(class_info.get("base_classes", [])),
+                    }
+                },
+            )
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to extract metadata for class: {str(e)}",
+                extra={"extra_fields": {"class": getattr(node, "name", "unknown")}},
+            )
+            continue
+
+    logger.info(
+        "Class metadata extraction completed",
+        extra={"extra_fields": {"total_classes": len(classes)}},
+    )
     return classes

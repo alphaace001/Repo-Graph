@@ -1,4 +1,10 @@
 import ast
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 def extract_arg_annotation(arg, lookup):
@@ -182,39 +188,54 @@ def extract_nested_functions(node, codebase_lookup, library_lookup, parent_name)
 
 def extract_function_metadata(tree, codebase_lookup, library_lookup):
     """Extract metadata for all top-level functions in the AST tree."""
+    logger.debug("Starting function metadata extraction")
     functions = []
 
     for node in tree.body:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
 
-        # Create function info structure
-        func_info = _create_function_info_structure(node)
+        try:
+            # Create function info structure
+            func_info = _create_function_info_structure(node)
 
-        # Extract arguments
-        func_info["args"] = _extract_function_arguments(node, codebase_lookup)
+            # Extract arguments
+            func_info["args"] = _extract_function_arguments(node, codebase_lookup)
 
-        # Extract decorators
-        func_info["decorators"] = _extract_decorators(
-            node, codebase_lookup, library_lookup
-        )
+            # Extract decorators
+            func_info["decorators"] = _extract_decorators(
+                node, codebase_lookup, library_lookup
+            )
 
-        # Extract function calls
-        func_info["calls"] = _extract_function_calls(
-            node, codebase_lookup, library_lookup
-        )
+            # Extract function calls
+            func_info["calls"] = _extract_function_calls(
+                node, codebase_lookup, library_lookup
+            )
 
-        # Extract nested functions
-        nested = extract_nested_functions(
-            node,
-            codebase_lookup,
-            library_lookup,
-            parent_name=node.name,
-        )
+            # Extract nested functions
+            nested = extract_nested_functions(
+                node,
+                codebase_lookup,
+                library_lookup,
+                parent_name=node.name,
+            )
 
-        func_info["depends"] = [f["name"] for f in nested]
+            func_info["depends"] = [f["name"] for f in nested]
 
-        functions.append(func_info)
-        functions.extend(nested)
+            functions.append(func_info)
+            functions.extend(nested)
+            
+            logger.debug("Function metadata extracted", 
+                        extra={'extra_fields': {
+                            'function': node.name,
+                            'nested_count': len(nested)
+                        }})
+            
+        except Exception as e:
+            logger.warning(f"Failed to extract metadata for function: {str(e)}", 
+                          extra={'extra_fields': {'function': getattr(node, 'name', 'unknown')}})
+            continue
 
+    logger.info("Function metadata extraction completed", 
+               extra={'extra_fields': {'total_functions': len(functions)}})
     return functions
