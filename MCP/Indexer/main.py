@@ -1,30 +1,29 @@
 import ast
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 from utils import discover_py_files, load_code, convert_file_paths_to_modules
 from import_utils import collect_grouped_imports, classify_imports
-from function_utils import build_codebase_symbol_lookup
-from function_metadata import extract_function_metadata
-from ingest_function_to_graph import ingest_functions_to_graph
-from extract_class_metadata import extract_class_metadata
-from ingest_class_to_graph import ingest_classes_to_graph
+from functions.function_utils import build_codebase_symbol_lookup
+from functions.function_metadata import extract_function_metadata
+from functions.ingest_function_to_graph import ingest_functions_to_graph
+from classes.extract_class_metadata import extract_class_metadata
+from classes.ingest_class_to_graph import ingest_classes_to_graph
 
 from langchain_neo4j import Neo4jGraph
 
+# Load environment variables
+load_dotenv()
+
 graph = Neo4jGraph(
-    url="neo4j+s://b1ae48ed.databases.neo4j.io",
-    username="neo4j",
-    password="vNUM9ZLYSJjKLEaL_TTQIJ7vLbr8fbWK7TQ-hU4Ms5I",
+    url=os.getenv("NEO4J_URL"),
+    username=os.getenv("NEO4J_USERNAME"),
+    password=os.getenv("NEO4J_PASSWORD"),
 )
 
 path = "D:\\KGassign\\fastapi"
 files = discover_py_files(path)
 file_dict = convert_file_paths_to_modules(files)
-
-current_file = "fastapi\\routing.py"
-code = load_code(Path(path) / current_file)
-
-ast_code = ast.parse(code)
-file_docstring = ast.get_docstring(ast_code)
 
 
 def build_module_node(
@@ -57,25 +56,6 @@ def build_module_node(
             "doc_text": doc_text,
         },
     )
-
-
-build_module_node(graph, current_file, code, file_docstring)
-
-imports = collect_grouped_imports(ast_code)
-codebase_imports, library_imports = classify_imports(imports, file_dict)
-
-lookup_codebase = build_codebase_symbol_lookup(codebase_imports)
-lookup_library = build_codebase_symbol_lookup(library_imports)
-# print(lookup_codebase)
-
-# function_metadata = extract_function_metadata(ast_code, lookup_codebase, lookup_library)
-# # print(function_metadata)
-# ingest_functions_to_graph(function_metadata, graph, file_dict)
-
-class_metadata = extract_class_metadata(
-    ast_code, lookup_codebase, lookup_library, current_file
-)
-ingest_classes_to_graph(class_metadata, graph, file_dict)
 
 
 def function_to_function_relationships(graph, function_metadata, file_dict):
@@ -160,3 +140,64 @@ def module_class_relationships(
                 "class": cl["name"],
             },
         )
+
+
+def process_single_file(
+    file_path: str, base_path: str, graph: Neo4jGraph, file_dict: dict
+):
+    """Process a single Python file and ingest it into the graph."""
+    print(f"Processing: {file_path}")
+
+    # Load and parse the file
+    code = load_code(Path(base_path) / file_path)
+    ast_code = ast.parse(code)
+    file_docstring = ast.get_docstring(ast_code)
+
+    # Build module node
+    build_module_node(graph, file_path, code, file_docstring)
+
+    # Extract imports
+    imports = collect_grouped_imports(ast_code)
+    codebase_imports, library_imports = classify_imports(imports, file_dict)
+
+    # Build symbol lookups
+    lookup_codebase = build_codebase_symbol_lookup(codebase_imports)
+    lookup_library = build_codebase_symbol_lookup(library_imports)
+
+    # Extract and ingest functions
+    function_metadata = extract_function_metadata(
+        ast_code, lookup_codebase, lookup_library
+    )
+    ingest_functions_to_graph(function_metadata, graph, file_dict)
+
+    # Extract and ingest classes
+    class_metadata = extract_class_metadata(
+        ast_code, lookup_codebase, lookup_library, file_path
+    )
+    ingest_classes_to_graph(class_metadata, graph, file_dict)
+
+    # Create module relationships
+    module_function_relationships(file_path, function_metadata, graph)
+    module_class_relationships(file_path, class_metadata, graph)
+
+    # Create function-to-function relationships
+    # function_to_function_relationships(graph, function_metadata, file_dict)
+
+
+def ingest_all_files():
+    """Ingest all Python files from the codebase into the graph."""
+    print(f"Found {len(files)} Python files to process")
+
+    for idx, file_path in enumerate(files, 1):
+        try:
+            process_single_file(file_path, path, graph, file_dict)
+            print(f"✓ Completed {idx}/{len(files)}: {file_path}")
+        except Exception as e:
+            print(f"✗ Error processing {file_path}: {str(e)}")
+            continue
+
+    print(f"\n✓ Finished processing all files!")
+
+
+if __name__ == "__main__":
+    ingest_all_files()
