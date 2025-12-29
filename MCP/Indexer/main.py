@@ -1,5 +1,6 @@
 import ast
 import os
+import json
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
@@ -31,9 +32,14 @@ graph = Neo4jGraph(
     password=os.getenv("NEO4J_PASSWORD"),
 )
 
-path = "D:\\KGassign\\fastapi"
-files = discover_py_files(path)
-file_dict = convert_file_paths_to_modules(files)
+# path = "D:\\KGassign\\fastapi"
+# files = discover_py_files(path)
+# file_dict = convert_file_paths_to_modules(files)
+
+# # Save file_dict for reference
+# with open("file_dict.json", "w", encoding="utf-8") as f:
+#     json.dump(file_dict, f, indent=2, ensure_ascii=False)
+# logger.info("File dictionary saved to file_dict.json")
 
 
 def build_module_node(
@@ -99,12 +105,16 @@ def build_module_node(
         raise
 
 
-def function_to_function_relationships(graph, function_metadata, file_dict):
+def function_to_function_relationships(
+    graph, function_metadata, file_dict, source_file_path
+):
     for fn in function_metadata:
         calls = fn.get("calls", {})
         codebase_imports = calls.get("codebase", [])
         import_and_fn = {}
         for imp in codebase_imports:
+            if "." not in imp:
+                continue
             lib, fn_name = imp.rsplit(".", 1)
             import_and_fn[lib] = fn_name
 
@@ -112,7 +122,8 @@ def function_to_function_relationships(graph, function_metadata, file_dict):
         for lib, fn_name in import_and_fn.items():
             graph.query(
                 """
-                        MATCH (f:Function {name: $fn_name})
+                        MATCH (source_module:Module {name: $source_module})
+                        MATCH (source_module)-[:CONTAINS]->(f:Function {name: $fn_name})
                         WHERE ($parent IS NULL AND f.parent_function IS NULL)
                         OR ($parent IS NOT NULL AND f.parent_function = $parent)
                         
@@ -135,6 +146,7 @@ def function_to_function_relationships(graph, function_metadata, file_dict):
                         )
                         """,
                 {
+                    "source_module": source_file_path,
                     "fn_name": fn["name"],
                     "parent": fn.get("parent_function"),
                     "target_module": file_dict[lib],
@@ -145,11 +157,11 @@ def function_to_function_relationships(graph, function_metadata, file_dict):
 
 def process_single_file(
     file_path: str, base_path: str, graph: Neo4jGraph, file_dict: dict
-) -> list[dict]:
+) -> tuple[list[dict], list[dict]]:
     """Process a single Python file and ingest it into the graph.
-    
+
     Returns:
-        List of codebase imports for later relationship creation
+        Tuple of (codebase_imports, function_metadata) for later relationship creation
     """
     logger.info("Starting file processing", extra={"extra_fields": {"file": file_path}})
 
@@ -208,8 +220,8 @@ def process_single_file(
             "File processing completed successfully",
             extra={"extra_fields": {"file": file_path}},
         )
-        
-        return codebase_imports
+
+        return codebase_imports, function_metadata
 
     except Exception as e:
         logger.error(
@@ -235,12 +247,16 @@ def ingest_all_files():
         error_count = 0
         errors = []
         all_imports = {}  # Store imports for each file
+        all_functions = {}  # Store function metadata for each file
 
         for idx, file_path in enumerate(files, 1):
             with LogContext(logger=logger):  # New correlation ID for each file
                 try:
-                    codebase_imports = process_single_file(file_path, path, graph, file_dict)
+                    codebase_imports, function_metadata = process_single_file(
+                        file_path, path, graph, file_dict
+                    )
                     all_imports[file_path] = codebase_imports
+                    all_functions[file_path] = function_metadata
                     success_count += 1
                     log_with_context(
                         logger,
@@ -277,28 +293,82 @@ def ingest_all_files():
             },
         )
 
+        # Write collected data to JSON files
+        logger.info("Writing metadata to files")
+        try:
+            with open("codebase_imports.json", "w", encoding="utf-8") as f:
+                json.dump(all_imports, f, indent=2, ensure_ascii=False)
+            logger.info("Codebase imports written to codebase_imports.json")
+        except Exception as e:
+            logger.error(f"Failed to write codebase imports: {str(e)}", exc_info=True)
+
+        try:
+            with open("function_metadata.json", "w", encoding="utf-8") as f:
+                json.dump(all_functions, f, indent=2, ensure_ascii=False)
+            logger.info("Function metadata written to function_metadata.json")
+        except Exception as e:
+            logger.error(f"Failed to write function metadata: {str(e)}", exc_info=True)
+
         # Create import relationships after all modules are created
-        logger.info("Creating module import relationships", extra={"extra_fields": {"total_files": len(all_imports)}})
+        logger.info(
+            "Creating module import relationships",
+            extra={"extra_fields": {"total_files": len(all_imports)}},
+        )
         relationship_count = 0
         for file_path, codebase_imports in all_imports.items():
             try:
-                create_import_relationships(file_path, codebase_imports, file_dict, graph)
+                create_import_relationships(
+                    file_path, codebase_imports, file_dict, graph
+                )
                 relationship_count += len(codebase_imports)
                 logger.debug(
                     "Import relationships created",
-                    extra={"extra_fields": {"file": file_path, "import_count": len(codebase_imports)}}
+                    extra={
+                        "extra_fields": {
+                            "file": file_path,
+                            "import_count": len(codebase_imports),
+                        }
+                    },
                 )
             except Exception as e:
                 logger.error(
                     f"Failed to create import relationships: {str(e)}",
                     extra={"extra_fields": {"file": file_path}},
-                    exc_info=True
+                    exc_info=True,
                 )
-        
+
         logger.info(
             "Import relationships creation completed",
-            extra={"extra_fields": {"total_relationships": relationship_count}}
+            extra={"extra_fields": {"total_relationships": relationship_count}},
         )
+
+        # Create function-to-function relationships after all modules are created
+        logger.info(
+            "Creating function-to-function relationships",
+            extra={"extra_fields": {"total_files": len(all_functions)}},
+        )
+        for file_path, function_metadata in all_functions.items():
+            try:
+                function_to_function_relationships(
+                    graph, function_metadata, file_dict, file_path
+                )
+                logger.debug(
+                    "Function relationships created",
+                    extra={
+                        "extra_fields": {
+                            "file": file_path,
+                            "function_count": len(function_metadata),
+                        }
+                    },
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to create function relationships: {str(e)}",
+                    extra={"extra_fields": {"file": file_path}},
+                    exc_info=True,
+                )
+
+        logger.info("Function-to-function relationships creation completed")
 
         if errors:
             logger.warning(
