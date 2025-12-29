@@ -162,7 +162,26 @@ def _create_depends_on_relationships(
             )
 
 
-def ingest_functions_to_graph(functions, graph, file_dict):
+def _create_module_function_relationship(graph, func_id, module_id):
+    """Create MODULE-[:CONTAINS]->FUNCTION relationship for top-level functions."""
+    graph.query(
+        """
+        MATCH (f:Function)
+        WHERE elementId(f) = $func_id
+        
+        MATCH (m:Module)
+        WHERE elementId(m) = $module_id
+        
+        MERGE (m)-[:CONTAINS]->(f)
+        """,
+        {
+            "func_id": func_id,
+            "module_id": module_id,
+        },
+    )
+
+
+def ingest_functions_to_graph(functions, graph, file_dict, module_id):
     """Ingest function metadata into the graph database."""
     index = _build_function_index(functions)
     processed = set()
@@ -180,6 +199,10 @@ def ingest_functions_to_graph(functions, graph, file_dict):
         func_id = _merge_function_node(graph, fn)
         func_id_cache[key] = func_id
 
+        # Create module-function relationship for top-level functions only
+        if fn.get("parent_function") is None:
+            _create_module_function_relationship(graph, func_id, module_id)
+
         # Create docstring
         _create_docstring_node(graph, func_id, fn.get("docstring"))
 
@@ -187,9 +210,9 @@ def ingest_functions_to_graph(functions, graph, file_dict):
         _create_parameter_nodes(graph, func_id, fn.get("args", []))
 
         # Create decorator relationships
-        _create_decorator_relationships(
-            graph, func_id, fn.get("decorators", []), file_dict
-        )
+        # _create_decorator_relationships(
+        #     graph, func_id, fn.get("decorators", []), file_dict
+        # )
 
         # Create depends_on relationships
         _create_depends_on_relationships(

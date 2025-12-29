@@ -147,7 +147,26 @@ def _ingest_class_methods(graph, class_id, class_name, methods, file_dict):
             _create_decorator_relationship(graph, method_id, "Method", dec, file_dict)
 
 
-def ingest_classes_to_graph(classes, graph, file_dict):
+def _create_module_class_relationship(graph, class_id, module_id):
+    """Create MODULE-[:CONTAINS]->CLASS relationship."""
+    graph.query(
+        """
+        MATCH (c:Class)
+        WHERE elementId(c) = $class_id
+        
+        MATCH (m:Module)
+        WHERE elementId(m) = $module_id
+        
+        MERGE (m)-[:CONTAINS]->(c)
+        """,
+        {
+            "class_id": class_id,
+            "module_id": module_id,
+        },
+    )
+
+
+def ingest_classes_to_graph(classes, graph, file_dict, module_id):
     """
     Creates Class, Method, Docstring, Parameter nodes and relationships
     from extracted class metadata.
@@ -160,10 +179,13 @@ def ingest_classes_to_graph(classes, graph, file_dict):
         _create_docstring_node(graph, class_id, "Class", cls.get("docstring"))
 
         # Create class decorator relationships
-        for dec in cls.get("decorators", []):
-            _create_decorator_relationship(graph, class_id, "Class", dec, file_dict)
+        # for dec in cls.get("decorators", []):
+        #     _create_decorator_relationship(graph, class_id, "Class", dec, file_dict)
 
         # Ingest all methods
         _ingest_class_methods(
             graph, class_id, cls["name"], cls.get("methods", []), file_dict
         )
+
+        # Create module-class relationship
+        _create_module_class_relationship(graph, class_id, module_id)

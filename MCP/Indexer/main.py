@@ -29,6 +29,7 @@ file_dict = convert_file_paths_to_modules(files)
 def build_module_node(
     graph: Neo4jGraph, current_file: str, code: str, module_docstring: str
 ):
+    """Build a Module node and return its element ID."""
     query = """
     MERGE (m:Module {name: $name})
     SET m.content = $content
@@ -41,13 +42,13 @@ def build_module_node(
 
     MERGE (m)-[:DOCUMENTED_BY]->(d)
 
-    RETURN m
+    RETURN elementId(m) as module_id
     """
     module_name = current_file
     content = code
     doc_name = f"{module_name}_docstring"
     doc_text = module_docstring
-    graph.query(
+    result = graph.query(
         query,
         {
             "name": module_name,
@@ -56,6 +57,7 @@ def build_module_node(
             "doc_text": doc_text,
         },
     )
+    return result[0]["module_id"]
 
 
 def function_to_function_relationships(graph, function_metadata, file_dict):
@@ -102,46 +104,6 @@ def function_to_function_relationships(graph, function_metadata, file_dict):
             )
 
 
-def module_function_relationships(
-    current_file: str, function_metadata: list[dict], graph: Neo4jGraph
-):
-    for fn in function_metadata:
-        if fn.get("parent_function") is not None:
-            continue  # skip nested functions
-        query = """
-        MATCH (f:Module {name: $Mod})
-        MATCH (fn:Function {name: $func})
-        MERGE (f)-[:CONTAINS]->(fn)
-        """
-
-        graph.query(
-            query,
-            {
-                "Mod": current_file,
-                "func": fn["name"],
-            },
-        )
-
-
-def module_class_relationships(
-    current_file: str, classes: list[dict], graph: Neo4jGraph
-):
-    for cl in classes:
-        query = """
-        MATCH (f:Module {name: $Mod})
-        MATCH (cl:Class {name: $class})
-        MERGE (f)-[:CONTAINS]->(cl)
-        """
-
-        graph.query(
-            query,
-            {
-                "Mod": current_file,
-                "class": cl["name"],
-            },
-        )
-
-
 def process_single_file(
     file_path: str, base_path: str, graph: Neo4jGraph, file_dict: dict
 ):
@@ -153,8 +115,8 @@ def process_single_file(
     ast_code = ast.parse(code)
     file_docstring = ast.get_docstring(ast_code)
 
-    # Build module node
-    build_module_node(graph, file_path, code, file_docstring)
+    # Build module node and get its ID
+    module_id = build_module_node(graph, file_path, code, file_docstring)
 
     # Extract imports
     imports = collect_grouped_imports(ast_code)
@@ -168,17 +130,13 @@ def process_single_file(
     function_metadata = extract_function_metadata(
         ast_code, lookup_codebase, lookup_library
     )
-    ingest_functions_to_graph(function_metadata, graph, file_dict)
+    ingest_functions_to_graph(function_metadata, graph, file_dict, module_id)
 
     # Extract and ingest classes
     class_metadata = extract_class_metadata(
         ast_code, lookup_codebase, lookup_library, file_path
     )
-    ingest_classes_to_graph(class_metadata, graph, file_dict)
-
-    # Create module relationships
-    module_function_relationships(file_path, function_metadata, graph)
-    module_class_relationships(file_path, class_metadata, graph)
+    ingest_classes_to_graph(class_metadata, graph, file_dict, module_id)
 
     # Create function-to-function relationships
     # function_to_function_relationships(graph, function_metadata, file_dict)
