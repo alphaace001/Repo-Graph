@@ -45,7 +45,9 @@ def process_single_file(
         logger.debug(
             "Loading and parsing file", extra={"extra_fields": {"file": file_path}}
         )
-        code = load_code(Path(base_path) / file_path)
+        # Strip leading slashes/backslashes to avoid path joining issues
+        clean_file_path = file_path.lstrip("/\\")
+        code = load_code(Path(base_path) / clean_file_path)
         ast_code = ast.parse(code)
         file_docstring = ast.get_docstring(ast_code)
 

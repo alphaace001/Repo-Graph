@@ -1,185 +1,154 @@
-"""
-Main ingestion orchestrator - Coordinates the graph ingestion pipeline.
-"""
-
-import logging
+import ast
 import sys
+import logging
+import io
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Suppress ALL logging output that interferes with MCP protocol communication
+# This must happen before any imports that might log
+logging.disable(logging.CRITICAL)
+logging.getLogger().setLevel(logging.CRITICAL)
 
-from Utils.utils import discover_py_files, convert_file_paths_to_modules
-from Utils.cypherquery_utils import create_import_relationships
-from Utils.file_processor import process_single_file
-from Utils.relationships import (
-    create_function_to_function_relationships,
-    create_class_to_class_relationships,
-)
+# Capture stdout during imports to suppress logging messages
+captured_output = io.StringIO()
+original_stdout = sys.stdout
+sys.stdout = captured_output
 
-from logger import setup_logger, LogContext, log_with_context
+# Setup Python paths before importing anything else
+sys.path.insert(
+    0, str(Path(__file__).parent.parent.parent)
+)  # Add KG-Assignment to path
+sys.path.insert(0, str(Path(__file__).parent))  # Add Indexer to path
+sys.path.insert(0, str(Path(__file__).parent / "Tools"))  # Add Tools to path
+sys.path.insert(0, str(Path(__file__).parent / "Utils"))  # Add Utils to path
 
-from Database.Neo4j.init import graph, logger
+try:
+    import json
+    from typing import Optional
+    from fastmcp import FastMCP
+    from Tools.extract_entities import extract_entities
+    from Tools.index_repo import ingest_all_files
+    from Tools.process_single_file import ingest_single_file
+    from Tools.get_python_ast import parse_python_file
+finally:
+    # Restore stdout
+    sys.stdout = original_stdout
 
-path = "D:\\KGassign\\fastapi"
-files = discover_py_files(path)
-file_dict = convert_file_paths_to_modules(files)
+# Re-enable logging but only for CRITICAL level and to stderr
+logging.disable(logging.NOTSET)
+logging.basicConfig(level=logging.CRITICAL, format="", stream=sys.stderr)
+
+# Initialize the MCP server with increased timeout
+mcp = FastMCP("indexer")
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+BASE_PATH = os.getenv("BASE_PATH", "D:\\KGassign\\fastapi")
 
 
-def ingest_all_files() -> None:
-    """Ingest all Python files from the codebase into the graph."""
-    with LogContext(logger=logger) as correlation_id:
-        logger.info(
-            "Starting batch file ingestion",
-            extra={"extra_fields": {"total_files": len(files), "path": path}},
+# Define the tools
+@mcp.tool()
+def extract_entities_tool(file_path: str) -> str:
+    """
+    Extract entities (functions and classes) from a Python file.
+
+    Args:
+        file_path: Path to the Python file
+        base_path: Base path for the codebase
+
+    Returns:
+        JSON string containing extracted entities
+    """
+    try:
+        # Strip leading slashes/backslashes to avoid path issues
+        file_path_clean = file_path.lstrip("/\\")
+        full_path = str(Path(BASE_PATH) / file_path_clean)
+        # Read and parse the file to get AST
+        with open(full_path, "r", encoding="utf-8") as f:
+            code_content = f.read()
+        ast_code = ast.parse(code_content)
+
+        # Call extract_entities with the AST
+        result = extract_entities(ast_code, None, file_path)
+        return json.dumps(result, default=str)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+def ingest_all_files_tool(path: str = "") -> str:
+    """
+    Ingest all Python files from a codebase into the knowledge graph.
+
+    Args:
+        path: Subdirectory path within the base path (optional, defaults to root)
+
+    Returns:
+        Status message about the ingestion process
+    """
+    try:
+        # Strip leading slashes/backslashes to avoid path duplication
+        path_clean = path.lstrip("/\\")
+        # Construct full path: BASE_PATH + path
+        if path_clean:
+            full_path = str(Path(BASE_PATH) / path_clean)
+        else:
+            full_path = BASE_PATH
+        ingest_all_files(full_path)
+        return json.dumps(
+            {
+                "status": "success",
+                "message": f"All files from {full_path} ingested successfully",
+            }
         )
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)})
 
-        success_count = 0
-        error_count = 0
-        errors = []
-        all_imports = {}  # Store imports for each file
-        all_functions = {}  # Store function metadata for each file
-        all_classes = {}  # Store class metadata for each file
 
-        # Phase 1: Process individual files
-        for idx, file_path in enumerate(files, 1):
-            with LogContext(logger=logger):  # New correlation ID for each file
-                try:
-                    codebase_imports, function_metadata, class_metadata = (
-                        process_single_file(file_path, path, graph, file_dict)
-                    )
-                    all_imports[file_path] = codebase_imports
-                    all_functions[file_path] = function_metadata
-                    all_classes[file_path] = class_metadata
-                    success_count += 1
-                    log_with_context(
-                        logger,
-                        logging.INFO,
-                        "File completed",
-                        progress=f"{idx}/{len(files)}",
-                        file=file_path,
-                        status="success",
-                    )
-                except Exception as e:
-                    error_count += 1
-                    error_msg = str(e)
-                    errors.append({"file": file_path, "error": error_msg})
-                    log_with_context(
-                        logger,
-                        logging.ERROR,
-                        "File failed",
-                        progress=f"{idx}/{len(files)}",
-                        file=file_path,
-                        status="error",
-                        error=error_msg,
-                    )
-                    continue
+@mcp.tool()
+def process_single_file_tool(file_path: str) -> str:
+    """
+    Process a single Python file and extract metadata.
 
-        logger.info(
-            "Batch ingestion completed",
-            extra={
-                "extra_fields": {
-                    "total_files": len(files),
-                    "success_count": success_count,
-                    "error_count": error_count,
-                    "success_rate": f"{(success_count/len(files)*100):.2f}%",
-                }
-            },
-        )
+    Args:
+        file_path: Path to the Python file relative to BASE_PATH
 
-        # Phase 2: Create import relationships
-        logger.info(
-            "Creating module import relationships",
-            extra={"extra_fields": {"total_files": len(all_imports)}},
-        )
-        relationship_count = 0
-        for file_path, codebase_imports in all_imports.items():
-            try:
-                create_import_relationships(
-                    file_path, codebase_imports, file_dict, graph
-                )
-                relationship_count += len(codebase_imports)
-                logger.debug(
-                    "Import relationships created",
-                    extra={
-                        "extra_fields": {
-                            "file": file_path,
-                            "import_count": len(codebase_imports),
-                        }
-                    },
-                )
-            except Exception as e:
-                logger.error(
-                    f"Failed to create import relationships: {str(e)}",
-                    extra={"extra_fields": {"file": file_path}},
-                    exc_info=True,
-                )
+    Returns:
+        JSON string with processing status
+    """
+    try:
+        # Strip leading slashes/backslashes to avoid path issues
+        file_path_clean = file_path.lstrip("/\\")
+        result = ingest_single_file(file_path_clean, BASE_PATH)
+        return json.dumps({"status": "success", "processed": result})
+    except Exception as e:
+        return json.dumps({"status": "error", "message": str(e)})
 
-        logger.info(
-            "Import relationships creation completed",
-            extra={"extra_fields": {"total_relationships": relationship_count}},
-        )
 
-        # Phase 3: Create function-to-function relationships
-        logger.info(
-            "Creating function-to-function relationships",
-            extra={"extra_fields": {"total_files": len(all_functions)}},
-        )
-        for file_path, function_metadata in all_functions.items():
-            try:
-                create_function_to_function_relationships(
-                    graph, function_metadata, file_dict, file_path
-                )
-                logger.debug(
-                    "Function relationships created",
-                    extra={
-                        "extra_fields": {
-                            "file": file_path,
-                            "function_count": len(function_metadata),
-                        }
-                    },
-                )
-            except Exception as e:
-                logger.error(
-                    f"Failed to create function relationships: {str(e)}",
-                    extra={"extra_fields": {"file": file_path}},
-                    exc_info=True,
-                )
+@mcp.tool()
+def parse_python_file_tool(file_path: str) -> str:
+    """
+    Parse a Python file and return its AST structure.
 
-        logger.info("Function-to-function relationships creation completed")
+    Args:
+        file_path: Path to the Python file relative to BASE_PATH
 
-        # # Phase 4: Create class-to-class relationships
-        logger.info(
-            "Creating class-to-class relationships",
-            extra={"extra_fields": {"total_files": len(all_classes)}},
-        )
-        for file_path, class_metadata in all_classes.items():
-            try:
-                create_class_to_class_relationships(
-                    graph, class_metadata, file_dict, file_path
-                )
-                logger.debug(
-                    "Class relationships created",
-                    extra={
-                        "extra_fields": {
-                            "file": file_path,
-                            "class_count": len(class_metadata),
-                        }
-                    },
-                )
-            except Exception as e:
-                logger.error(
-                    f"Failed to create class relationships: {str(e)}",
-                    extra={"extra_fields": {"file": file_path}},
-                    exc_info=True,
-                )
-
-        logger.info("Class-to-class relationships creation completed")
-        logger.warning(
-            f"Encountered {error_count} errors during ingestion",
-            extra={"extra_fields": {"errors": errors[:10]}},
-        )  # Log first 10 errors
+    Returns:
+        JSON string representation of the AST
+    """
+    try:
+        # Strip leading slashes/backslashes to avoid path issues
+        file_path_clean = file_path.lstrip("/\\")
+        ast_tree = parse_python_file(file_path_clean, BASE_PATH)
+        # Convert AST to string representation
+        ast_dump = json.dumps({"ast": str(ast_tree)})
+        return ast_dump
+    except Exception as e:
+        return json.dumps({"error": str(e)})
 
 
 if __name__ == "__main__":
-    ingest_all_files()
+    # Start the MCP server
+    mcp.run()
