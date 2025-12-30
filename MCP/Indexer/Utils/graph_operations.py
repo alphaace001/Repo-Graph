@@ -2,6 +2,7 @@
 Neo4j graph operations service - Single Responsibility Principle.
 Centralizes all graph query logic.
 """
+
 import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -18,7 +19,7 @@ class GraphOperations:
     def __init__(self, graph):
         """
         Initialize GraphOperations service.
-        
+
         Args:
             graph: Neo4jGraph instance
         """
@@ -28,25 +29,13 @@ class GraphOperations:
         self, node_type: str, properties: Dict[str, Any], return_field: str = "id"
     ) -> str:
         """
-        Create or merge a node and return its element ID.
-        
-        Args:
-            node_type: Node label (e.g., 'Function', 'Class', 'Module')
-            properties: Properties to set on the node
-            return_field: Field name to return
-        
-        Returns:
-            The element ID of the node
+        Always CREATE a new node and set all properties.
         """
-        # Build property assignments
-        set_clause = ", ".join(
-            [f"n.{k} = ${k}" for k in properties.keys() if k not in ["name"]]
-        )
-        set_clause = f"SET {set_clause}" if set_clause else ""
+        set_clause = ", ".join([f"n.{k} = ${k}" for k in properties.keys()])
 
         query = f"""
-        MERGE (n:{node_type} {{name: $name}})
-        {set_clause}
+        CREATE (n:{node_type})
+        SET {set_clause}
         RETURN elementId(n) as {return_field}
         """
 
@@ -63,7 +52,7 @@ class GraphOperations:
     ) -> None:
         """
         Create a relationship between two nodes by element ID.
-        
+
         Args:
             source_type: Source node label
             source_id: Source node element ID
@@ -88,7 +77,7 @@ class GraphOperations:
     ) -> None:
         """
         Create and link a docstring node.
-        
+
         Args:
             entity_type: Type of entity (e.g., 'Function', 'Class')
             entity_id: Element ID of the entity
@@ -122,7 +111,7 @@ class GraphOperations:
     ) -> None:
         """
         Create or update a parameter node.
-        
+
         Args:
             entity_type: Type of parent entity ('Function' or 'Method')
             entity_id: Element ID of the parent entity
@@ -153,7 +142,7 @@ class GraphOperations:
     ) -> None:
         """
         Create a CONTAINS relationship.
-        
+
         Args:
             container_type: Type of container (e.g., 'Module', 'Class')
             container_id: Element ID of container
@@ -169,7 +158,7 @@ class GraphOperations:
     ) -> None:
         """
         Create an IMPORTS relationship between modules.
-        
+
         Args:
             source_module: Source module name
             target_module: Target module name
@@ -197,7 +186,7 @@ class GraphOperations:
     ) -> None:
         """
         Create a DECORATED_BY relationship with optional fallback targets.
-        
+
         Args:
             source_type: Type of decorated entity ('Function', 'Class', 'Method')
             source_id: Element ID of decorated entity
