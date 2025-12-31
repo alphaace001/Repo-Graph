@@ -18,12 +18,8 @@ captured_output = io.StringIO()
 original_stdout = sys.stdout
 sys.stdout = captured_output
 
-# Setup Python paths before importing anything else
-sys.path.insert(
-    0, str(Path(__file__).parent.parent.parent)
-)  # Add KG-Assignment to path
+# Setup Python paths for local modules
 sys.path.insert(0, str(Path(__file__).parent))  # Add Analyst to path
-sys.path.insert(0, str(Path(__file__).parent / "Utils"))  # Add Utils to path
 
 try:
     import json

@@ -2,13 +2,9 @@
 Code Analysis Service - Provides deep code understanding and pattern analysis.
 """
 
-import sys
-from pathlib import Path
 from typing import List, Dict, Any, Optional
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-from logger import setup_logger
-from Utils.db_connection import Neo4jConnection
+from .logger import setup_logger
+from .db_connection import Neo4jConnection
 
 logger = setup_logger(__name__)
 
