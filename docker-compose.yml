@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  # Knowledge Graph Backend API
+  api:
+    build:
+      context: .
+      dockerfile: API/Dockerfile
+    container_name: kg-api
+    ports:
+      - "8000:8000"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - NEO4J_URL=neo4j://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
+      - MCP_GRAPH_QUERY_HOST=graph-query
+      - MCP_GRAPH_QUERY_PORT=8001
+      - MCP_ANALYST_HOST=analyst
+      - MCP_ANALYST_PORT=8002
+      - MCP_INDEXER_HOST=indexer
+      - MCP_INDEXER_PORT=8003
+    depends_on:
+      - neo4j
+    networks:
+      - kg-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/graph"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Neo4j Database
+  neo4j:
+    image: neo4j:5.15-enterprise
+    container_name: kg-neo4j
+    ports:
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-password}
+      - NEO4J_PLUGINS=["apoc"]
+    volumes:
+      - neo4j_data:/var/lib/neo4j/data
+      - neo4j_logs:/var/lib/neo4j/logs
+    networks:
+      - kg-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+
+networks:
+  kg-network:
+    driver: bridge

@@ -59,6 +59,7 @@ async def main():
         ]
         response = await agent.ainvoke({"messages": messages}, {"recursion_limit": 150})
         print(response["messages"][-1].content)
+        return response["messages"][-1].content
 
         # llm_with_tools = llm.bind_tools(tools)
         # response = await llm_with_tools.ainvoke("What tools do you have")
