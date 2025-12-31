@@ -46,18 +46,23 @@ query_service = GraphQueryService()
 @mcp.tool()
 def find_entity(name: str, entity_type: str = "") -> str:
     """
-    Locate a class, function, or module by name.
+    Search the code knowledge graph for an entity by name, optionally filtered
+    by entity type, and return matching nodes with metadata.
 
-    This tool searches the knowledge graph for entities matching the given name.
-    Results can be filtered by type (Function, Class, Module).
+    This tool supports lookup of:
+    Function, Class, Module, Docstring, Method, and Parameter nodes.
 
     Args:
-        name: Name or partial name of the entity to find
-        entity_type: Optional entity type filter. Must be one of: "Function", "Class", or "Module"
-                     If provided, only entities of this type will be returned.
+        name: Full or partial entity name to search for.
+        entity_type: Optional label filter. Must be one of:
+                    "Function", "Class", "Module", "Docstring", "Method", "Parameter".
 
     Returns:
-        JSON string containing matched entities with their properties
+        A list of matched entities (max 20), each containing:
+            - name: entity name
+            - type: primary node label
+            - properties: full node properties
+            - id: Neo4j elementId
     """
     try:
         # Normalize entity_type if provided
@@ -73,25 +78,30 @@ def find_entity(name: str, entity_type: str = "") -> str:
 
 
 @mcp.tool()
-def get_dependencies(entity_name: str) -> str:
+def get_dependencies(entity_id: str) -> str:
     """
-    Find what an entity depends on.
-
-    Returns all entities that the specified entity directly depends on
-    (via DEPENDS_ON relationships).
+    Retrieve the outgoing `DEPENDS_ON` relationships for an entity in the
+    code knowledge graph, identified by its Neo4j `elementId`.
 
     Args:
-        entity_name: Name of the entity to analyze
+        entity_id: Neo4j elementId of the source entity node
+                (Function, Class, or Method).
 
     Returns:
-        JSON string containing list of dependencies
+        A list of dependency records, each containing:
+        - source_name: name of the entity that owns the dependency
+        - source_type: label of the source node
+        - relationship: relationship type ("DEPENDS_ON")
+        - target_name: name of the dependency target
+        - target_type: label of the target node
+        - target_id: Neo4j elementId of the target node
     """
     try:
-        results = query_service.get_dependencies(entity_name)
+        results = query_service.get_dependencies(entity_id)
         return json.dumps(
             {
                 "status": "success",
-                "entity": entity_name,
+                "entity": entity_id,
                 "count": len(results),
                 "dependencies": results,
             },
@@ -102,25 +112,30 @@ def get_dependencies(entity_name: str) -> str:
 
 
 @mcp.tool()
-def get_dependents(entity_name: str) -> str:
+def get_dependents(entity_id: str) -> str:
     """
-    Find what depends on an entity.
-
-    Returns all entities that depend on the specified entity
-    (reverse DEPENDS_ON relationships).
+    Retrieve the incoming `DEPENDS_ON` relationships for an entity in the
+    code knowledge graph, returning the entities that depend on it.
 
     Args:
-        entity_name: Name of the entity to analyze
+        entity_id: Neo4j elementId of the target entity node
+                (Function, Class, or Method).
 
     Returns:
-        JSON string containing list of dependents
+        A list of dependent records, each containing:
+            - source_name: name of the dependent entity
+            - source_type: label of the dependent node
+            - source_id: Neo4j elementId of the dependent node
+            - relationship: relationship type ("DEPENDS_ON")
+            - target_name: name of the entity being depended on
+            - target_type: label of the target node
     """
     try:
-        results = query_service.get_dependents(entity_name)
+        results = query_service.get_dependents(entity_id)
         return json.dumps(
             {
                 "status": "success",
-                "entity": entity_name,
+                "entity": entity_id,
                 "count": len(results),
                 "dependents": results,
             },
@@ -131,7 +146,7 @@ def get_dependents(entity_name: str) -> str:
 
 
 @mcp.tool()
-def trace_imports(module_name: str, max_depth: int = 5) -> str:
+def trace_imports(module_name: str, max_depth: int = 3) -> str:
     """
     Follow import chain for a module.
 
@@ -140,7 +155,7 @@ def trace_imports(module_name: str, max_depth: int = 5) -> str:
 
     Args:
         module_name: Name of the module to trace imports for
-        max_depth: Maximum depth for traversal (default: 5)
+        max_depth: Maximum depth for traversal (default: 3)
 
     Returns:
         JSON string containing import chains
@@ -165,27 +180,32 @@ def trace_imports(module_name: str, max_depth: int = 5) -> str:
 
 
 @mcp.tool()
-def find_related(entity_name: str, relationship_type: str) -> str:
+def find_related(entity_id: str, relationship_type: str) -> str:
     """
-    Get entities related by specified relationship type.
+    Find entities that are connected to a given node by a specific
+    relationship type in the code knowledge graph. Supports both
+    outgoing and incoming relationship directions.
 
-    Finds all entities connected to the specified entity via the given
-    relationship type (e.g., IMPORTS, INHERITS_FROM, DECORATED_BY).
-    Searches in both directions (incoming and outgoing relationships).
+     Args:
+         entity_id: Neo4j elementId of the source or target entity.
+         relationship_type: Relationship label to query. Must be one of:
+             "CONTAINS", "DEPENDS_ON", "DOCUMENTED_BY",
+             "HAS_PARAMETER", "IMPORTS", "INHERITS_FROM",
+             "DECORATED_BY".
 
-    Args:
-        entity_name: Name of the entity
-        relationship_type: Type of relationship (IMPORTS, INHERITS_FROM, DECORATED_BY, DEPENDS_ON, etc.)
-
-    Returns:
-        JSON string containing related entities
+     Returns:
+         A list of related entities, each containing:
+             - source_name / source_type
+             - target_name / target_type
+             - target_id (Neo4j elementId)
+             - relationship (requested relationship type)
     """
     try:
-        results = query_service.find_related(entity_name, relationship_type)
+        results = query_service.find_related(entity_id, relationship_type)
         return json.dumps(
             {
                 "status": "success",
-                "entity": entity_name,
+                "entity": entity_id,
                 "relationship_type": relationship_type,
                 "count": len(results),
                 "related_entities": results,

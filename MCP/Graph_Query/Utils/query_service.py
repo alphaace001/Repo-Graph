@@ -35,8 +35,9 @@ class GraphQueryService:
 
         valid_types = ["Function", "Class", "Module", "Docstring", "Method", "Parameter"]
         if entity_type and entity_type not in valid_types:
-            logger.warning(f"Invalid entity_type '{entity_type}', ignoring filter")
-            entity_type = None
+            raise ValueError(
+                f"Invalid entity_type '{entity_type}'. Must be one of: {', '.join(valid_types)}"
+            )
 
         if entity_type:
             query = f"""
@@ -72,18 +73,19 @@ class GraphQueryService:
             logger.error(f"Error finding entity '{name}': {str(e)}")
             raise
 
-    def get_dependencies(self, entity_name: str) -> List[Dict[str, Any]]:
+    def get_dependencies(self, entity_id: str) -> List[Dict[str, Any]]:
         """
         Find what an entity depends on (DEPENDS_ON relationships).
 
         Args:
-            entity_name: Name of the entity
+            entity_id: ID of the entity
 
         Returns:
             List of dependencies
         """
         query = """
-        MATCH (source {name: $entity_name})-[rel:DEPENDS_ON]->(target)
+        MATCH (source)-[rel:DEPENDS_ON]->(target)
+        WHERE elementId(source) = $entity_id
         RETURN 
             source.name AS source_name,
             labels(source)[0] AS source_type,
@@ -94,25 +96,26 @@ class GraphQueryService:
         """
 
         try:
-            results = self.db.execute_query(query, {"entity_name": entity_name})
-            logger.info(f"Found {len(results)} dependencies for '{entity_name}'")
+            results = self.db.execute_query(query, {"entity_id": entity_id})
+            logger.info(f"Found {len(results)} dependencies for entity '{entity_id}'")
             return results
         except Exception as e:
-            logger.error(f"Error getting dependencies for '{entity_name}': {str(e)}")
-            raise
+            logger.error(f"Error getting dependencies for entity '{entity_id}': {str(e)}")
+            raise (f"Error getting dependencies for entity '{entity_id}': {str(e)}")
 
-    def get_dependents(self, entity_name: str) -> List[Dict[str, Any]]:
+    def get_dependents(self, entity_id: str) -> List[Dict[str, Any]]:
         """
         Find what depends on an entity (reverse DEPENDS_ON relationships).
 
         Args:
-            entity_name: Name of the entity
+            entity_id: ID of the entity
 
         Returns:
             List of entities that depend on this one
         """
         query = """
-        MATCH (source)-[rel:DEPENDS_ON]->(target {name: $entity_name})
+        MATCH (source)-[rel:DEPENDS_ON]->(target)
+        WHERE elementId(target) = $entity_id
         RETURN 
             source.name AS source_name,
             labels(source)[0] AS source_type,
@@ -120,16 +123,15 @@ class GraphQueryService:
             type(rel) AS relationship,
             target.name AS target_name,
             labels(target)[0] AS target_type
-
         """
 
         try:
-            results = self.db.execute_query(query, {"entity_name": entity_name})
-            logger.info(f"Found {len(results)} dependents of '{entity_name}'")
+            results = self.db.execute_query(query, {"entity_id": entity_id})
+            logger.info(f"Found {len(results)} dependents of '{entity_id}'")
             return results
         except Exception as e:
-            logger.error(f"Error getting dependents for '{entity_name}': {str(e)}")
-            raise
+            logger.error(f"Error getting dependents for '{entity_id}': {str(e)}")
+            raise (f"Error getting dependents for '{entity_id}': {str(e)}")
 
     def trace_imports(self, module_name: str, max_depth: int = 5) -> List[Dict[str, Any]]:
         """
@@ -163,12 +165,12 @@ class GraphQueryService:
             logger.error(f"Error tracing imports for '{module_name}': {str(e)}")
             raise
 
-    def find_related(self, entity_name: str, relationship_type: str) -> List[Dict[str, Any]]:
+    def find_related(self, entity_id: str, relationship_type: str) -> List[Dict[str, Any]]:
         """
         Find entities related by a specified relationship type.
 
         Args:
-            entity_name: Name of the source entity
+            entity_id: ID of the source entity
             relationship_type: Type of relationship "CONTAINS","DEPENDS_ON","DOCUMENTED_BY","HAS_PARAMETER","IMPORTS","INHERITS_FROM" Only
 
         Returns:
@@ -187,11 +189,12 @@ class GraphQueryService:
             "DECORATED_BY",
         ]
         if relationship_type and relationship_type not in valid_types:
-            logger.warning(f"Invalid entity_type '{relationship_type}', ignoring filter")
+            logger.warning(f"Invalid relationship_type '{relationship_type}', ignoring filter")
             raise ValueError(f"Invalid relationship type: {relationship_type}")
 
         query = f"""
-        MATCH (source {{name: $entity_name}})-[rel:{safe_rel_type}]->(target)
+        MATCH (source)-[rel:{safe_rel_type}]->(target)
+        WHERE elementId(source) = $entity_id
         RETURN 
             source.name as source_name,
             labels(source)[0] as source_type,
@@ -200,7 +203,8 @@ class GraphQueryService:
             labels(target)[0] as target_type,
             elementId(target) as target_id
         UNION
-        MATCH (source)-[rel:{safe_rel_type}]->(target {{name: $entity_name}})
+        MATCH (source)-[rel:{safe_rel_type}]->(target)
+        WHERE elementId(target) = $entity_id
         RETURN 
             source.name as source_name,
             labels(source)[0] as source_type,
@@ -212,15 +216,15 @@ class GraphQueryService:
 
         try:
             results = self.db.execute_query(
-                query, {"entity_name": entity_name, "rel_type": relationship_type}
+                query, {"entity_id": entity_id, "rel_type": relationship_type}
             )
             logger.info(
-                f"Found {len(results)} entities related by '{relationship_type}' to '{entity_name}'"
+                f"Found {len(results)} entities related by '{relationship_type}' to entity '{entity_id}'"
             )
             return results
         except Exception as e:
-            logger.error(f"Error finding related entities for '{entity_name}': {str(e)}")
-            return e
+            logger.error(f"Error finding related entities for '{entity_id}': {str(e)}")
+            raise (f"Error finding related entities for '{entity_id}': {str(e)}")
 
     def execute_custom_query(self, query: str, parameters: dict = None) -> List[Dict[str, Any]]:
         """

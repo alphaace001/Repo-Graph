@@ -3,7 +3,6 @@ Analyst MCP Server - FastMCP implementation for deep code understanding and patt
 Provides tools for analyzing functions, classes, design patterns, code snippets, and implementations.
 """
 
-import ast
 import sys
 import logging
 import io
@@ -55,24 +54,28 @@ analysis_service = CodeAnalysisService(db_connection)
 @mcp.tool()
 def analyze_function(function_id: str, include_calls: bool = True) -> str:
     """
-    Deep analysis of a function's logic, implementation, and complexity.
+    Analyze a function node in the code knowledge graph and return its metadata,
+    structural context, relationships, and surrounding source code snippet.
 
-    This tool provides comprehensive analysis of a function including:
-    - Function signature and parameters
-    - Docstring and purpose
-    - Complexity metrics
-    - Dependencies and function calls
-    - Return value analysis
-    - Code patterns used
-    - Best practices adherence
+    Given a function's Neo4j `elementId`, this tool returns:
+    - file location (module, start/end lines, LOC)
+    - docstring
+    - parameters (flattened list of "name=type")
+    - functions or entities it depends on (`DEPENDS_ON`)
+    - functions or entities that call it (`called_by`)
+    - optional detailed dependency edges (via `get_dependencies`)
+    - a contextual code excerpt from the module
 
     Args:
-        function_id: Name of the function to analyze
-        include_calls: Whether to include detailed analysis of function calls (default: True)
+        function_id: Neo4j elementId of the function node.
+        include_calls: If True, include expanded dependency edges.
+        context_lines: Number of context lines around the function body.
 
     Returns:
-        JSON string containing detailed function analysis
+        Structured JSON object describing the function's definition,
+        relationships, and code context, or an error if not found.
     """
+
     try:
         results = analysis_service.analyze_function(function_id, include_calls)
         return json.dumps(
@@ -86,23 +89,26 @@ def analyze_function(function_id: str, include_calls: bool = True) -> str:
 @mcp.tool()
 def analyze_class(class_id: str, include_methods: bool = True) -> str:
     """
-    Comprehensive class analysis including structure, patterns, and design.
+    Analyze a class node in the code knowledge graph and return its metadata,
+    structure, inheritance relationships, methods, and surrounding source code snippet.
 
-    This tool provides detailed analysis of a class including:
-    - Class structure and inheritance hierarchy
-    - Methods and their purposes
-    - Attributes and their types
-    - Design patterns implemented
-    - Class relationships and dependencies
-    - Encapsulation and cohesion analysis
-    - SOLID principles adherence
+    Given a class Neo4j `elementId`, this tool returns:
+    - file location (module, start/end lines, LOC)
+    - docstring
+    - methods defined inside the class (with line metadata)
+    - parent classes (`INHERITS_FROM`)
+    - subclasses (reverse inheritance)
+    - optional detailed dependency edges (via `get_dependencies`)
+    - a contextual code excerpt from the module
 
     Args:
-        class_id: Name of the class to analyze
-        include_methods: Whether to include detailed method analysis (default: True)
+        class_id: Neo4j elementId of the class node.
+        include_calls: If True, include expanded dependency edges.
+        context_lines: Number of context lines around the class definition.
 
     Returns:
-        JSON string containing comprehensive class analysis
+        Structured JSON object describing the class, its methods,
+        inheritance relations, and code context, or an error if not found.
     """
     try:
         results = analysis_service.analyze_class(class_id, include_methods)
@@ -122,7 +128,7 @@ def get_code_snippet(entity_id: str, context_lines: int = 5) -> str:
     along with surrounding context for better understanding.
 
     Args:
-        entity_id: Name of the entity (function, class, or method)
+        entity_id: Neo4j elementId of the class node. (function, class, or method)
         context_lines: Number of lines of context before and after (default: 5)
 
     Returns:

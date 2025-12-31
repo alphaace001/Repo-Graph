@@ -4,6 +4,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from llm import llm
 from agent import build_agent
+from prompt import BASE_PROMPT
 
 # Environment variables to suppress FastMCP banner
 server_env = os.environ.copy()
@@ -52,7 +53,7 @@ async def main():
         messages = [
             (
                 "system",
-                "you are a smart code analyser that think like a senior developer. You are provided with tools to query the KG. Use them to answer the user questions",
+                BASE_PROMPT,
             ),
             ("human", "Compare how Path and Query parameters are implemented"),
         ]

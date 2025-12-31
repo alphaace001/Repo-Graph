@@ -99,9 +99,6 @@ class CodeAnalysisService:
 
             f = results[0]
 
-            # --------------------------------------------------
-            # CODE SNIPPET EXTRACTION
-            # --------------------------------------------------
             module_code = f.get("module_code") or ""
             lines = module_code.split("\n") if module_code else []
 
@@ -121,9 +118,6 @@ class CodeAnalysisService:
                 code_snippet = "\n".join(lines[context_start:context_end])
                 lines_of_code = max(0, end - start + 1)
 
-            # --------------------------------------------------
-            # PARAMETERS — flatten + dedupe
-            # --------------------------------------------------
             raw_param_groups = f.get("parameters", [])
 
             flat_params = []
@@ -133,16 +127,10 @@ class CodeAnalysisService:
 
             flat_params = sorted(set(p for p in flat_params if p))
 
-            # --------------------------------------------------
-            # BASIC DEPENDENCY + CALLER SETS
-            # --------------------------------------------------
             dependencies = [d for d in f.get("dependencies", []) if d and d.get("name")]
 
             called_by = [c for c in f.get("called_by", []) if c and c.get("name")]
 
-            # --------------------------------------------------
-            # EXPANDED DEPENDENCY ANALYSIS
-            # --------------------------------------------------
             detailed_calls = []
             if include_calls:
                 try:
@@ -151,9 +139,6 @@ class CodeAnalysisService:
                     print(f"[warn] dependency expansion failed for {function_id}: {e}")
                     detailed_calls = []
 
-            # --------------------------------------------------
-            # FINAL ANALYSIS OBJECT
-            # --------------------------------------------------
             analysis = {
                 "name": f["function_name"],
                 "file_path": f["file_path"],
@@ -238,9 +223,6 @@ class CodeAnalysisService:
 
             c = results[0]
 
-            # ---------------------------------------
-            # CODE SNIPPET EXTRACTION
-            # ---------------------------------------
             module_code = c.get("module_code") or ""
             lines = module_code.split("\n") if module_code else []
 
@@ -260,23 +242,14 @@ class CodeAnalysisService:
                 code_snippet = "\n".join(lines[context_start:context_end])
                 lines_of_code = max(0, end - start + 1)
 
-            # ---------------------------------------
-            # METHODS
-            # ---------------------------------------
             methods = [m for m in c.get("methods", []) if m and m.get("name")]
 
-            # ---------------------------------------
-            # INHERITANCE
-            # ---------------------------------------
             parent_classes = [
                 p for p in c.get("parent_classes", []) if p and p.get("name")
             ]
 
             subclasses = [s for s in c.get("subclasses", []) if s and s.get("name")]
 
-            # ---------------------------------------
-            # OPTIONAL — CLASS DEPENDENCY EXPANSION
-            # ---------------------------------------
             detailed_calls = []
             if include_calls:
                 try:
@@ -286,9 +259,6 @@ class CodeAnalysisService:
                         f"[warn] dependency expansion failed for class {class_id}: {e}"
                     )
 
-            # ---------------------------------------
-            # RESULT
-            # ---------------------------------------
             analysis = {
                 "name": c["class_name"],
                 "file_path": c["file_path"],
