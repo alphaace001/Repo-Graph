@@ -1,30 +1,34 @@
-# Use Python 3.12 slim image as base
 FROM python:3.12-slim
 
-# Set working directory
 WORKDIR /app
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    BASE_PATH=/data/fastapi
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies including Node.js for npx (required for FastMCP inspector UI)
+RUN apt-get update && apt-get install -y \
     git \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
+
+# Install MCP inspector globally to avoid runtime installation
+RUN npm install -g @modelcontextprotocol/inspector@0.15.0
 
 # Copy the entire KG-Assignment project
 COPY . /app/
 
-# Install Python dependencies
+# Install Python dependencies from Indexer requirements
 RUN pip install --no-cache-dir -r /app/MCP/Indexer/requirements.txt
 
-# Change to the Indexer directory
+# Set working directory to the Indexer MCP
 WORKDIR /app/MCP/Indexer
 
-# Expose the default MCP server port (if using stdio, this may not be needed)
-EXPOSE 8000
+# Environment variables to bind inspector to all interfaces (for Docker access)
+ENV HOST=0.0.0.0
+ENV CLIENT_PORT=6274
+ENV SERVER_PORT=6277
 
-# Set the entrypoint to run the MCP server
-ENTRYPOINT ["python", "main.py"]
+# Expose MCP Inspector ports
+EXPOSE 6274 6277
+
+# Run the MCP server with inspector UI
+CMD ["npx", "@modelcontextprotocol/inspector", "--", "python", "main.py"]
