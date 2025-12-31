@@ -18,27 +18,52 @@ MCP_PATH = BASE_PATH / "MCP"
 server_env = os.environ.copy()
 server_env["FASTMCP_QUIET"] = "1"
 
+# Check if running in Docker mode
+DOCKER_MODE = os.getenv("DOCKER_MODE", "false").lower() == "true"
+
 # MCP Server configurations
-MCP_SERVERS = {
-    "analyst": {
-        "transport": "stdio",
-        "command": str(VENV_PATH),
-        "args": [str(MCP_PATH / "Analyst" / "main.py")],
-        "env": server_env,
-    },
-    "graph-query": {
-        "transport": "stdio",
-        "command": str(VENV_PATH),
-        "args": [str(MCP_PATH / "Graph_Query" / "main.py")],
-        "env": server_env,
-    },
-    "indexer": {
-        "transport": "stdio",
-        "command": str(VENV_PATH),
-        "args": [str(MCP_PATH / "Indexer" / "main.py")],
-        "env": server_env,
-    },
-}
+if DOCKER_MODE:
+    # Docker mode: Use SSE transport to connect to MCP services over network
+    MCP_ANALYST_URL = os.getenv("MCP_ANALYST_URL", "http://analyst:8001/sse")
+    MCP_GRAPH_QUERY_URL = os.getenv("MCP_GRAPH_QUERY_URL", "http://graph-query:8002/sse")
+    MCP_INDEXER_URL = os.getenv("MCP_INDEXER_URL", "http://indexer:8003/sse")
+    
+    MCP_SERVERS = {
+        "analyst": {
+            "transport": "sse",
+            "url": MCP_ANALYST_URL,
+        },
+        "graph-query": {
+            "transport": "sse",
+            "url": MCP_GRAPH_QUERY_URL,
+        },
+        "indexer": {
+            "transport": "sse",
+            "url": MCP_INDEXER_URL,
+        },
+    }
+else:
+    # Local mode: Use stdio transport to spawn MCP services as subprocesses
+    MCP_SERVERS = {
+        "analyst": {
+            "transport": "stdio",
+            "command": str(VENV_PATH),
+            "args": [str(MCP_PATH / "Analyst" / "main.py")],
+            "env": server_env,
+        },
+        "graph-query": {
+            "transport": "stdio",
+            "command": str(VENV_PATH),
+            "args": [str(MCP_PATH / "Graph_Query" / "main.py")],
+            "env": server_env,
+        },
+        "indexer": {
+            "transport": "stdio",
+            "command": str(VENV_PATH),
+            "args": [str(MCP_PATH / "Indexer" / "main.py")],
+            "env": server_env,
+        },
+    }
 
 # Service display names
 SERVICE_NAMES = {

@@ -150,5 +150,13 @@ def parse_python_file_tool(file_path: str) -> str:
 
 
 if __name__ == "__main__":
-    # Start the MCP server
-    mcp.run(show_banner=False)
+    import os
+    
+    if os.getenv("DOCKER_MODE") == "true":
+        # Run with SSE transport for Docker networking
+        host = os.getenv("MCP_HOST", "0.0.0.0")
+        port = int(os.getenv("MCP_PORT", "8003"))
+        mcp.run(transport="sse", host=host, port=port)
+    else:
+        # Run with stdio for local development
+        mcp.run(show_banner=False)

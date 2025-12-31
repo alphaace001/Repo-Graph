@@ -2,16 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies including Node.js for npx (required for FastMCP inspector UI)
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
     curl \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
-
-# Install MCP inspector globally to avoid runtime installation
-RUN npm install -g @modelcontextprotocol/inspector@0.15.0
 
 # Copy the entire KG-Assignment project
 COPY . /app/
@@ -22,13 +17,13 @@ RUN pip install --no-cache-dir -r /app/MCP/Indexer/requirements.txt
 # Set working directory to the Indexer MCP
 WORKDIR /app/MCP/Indexer
 
-# Environment variables to bind inspector to all interfaces (for Docker access)
-ENV HOST=0.0.0.0
-ENV CLIENT_PORT=6274
-ENV SERVER_PORT=6277
+# Environment variables for Docker mode
+ENV DOCKER_MODE=true
+ENV MCP_HOST=0.0.0.0
+ENV MCP_PORT=8003
 
-# Expose MCP Inspector ports
-EXPOSE 6274 6277
+# Expose SSE port
+EXPOSE 8003
 
-# Run the MCP server with inspector UI
-CMD ["npx", "@modelcontextprotocol/inspector", "--", "python", "main.py"]
+# Run the MCP server in SSE mode
+CMD ["python", "main.py"]

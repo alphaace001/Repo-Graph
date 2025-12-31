@@ -145,4 +145,13 @@ def get_code_snippet(entity_id: str, context_lines: int = 5) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run(show_banner=False)
+    import os
+    
+    if os.getenv("DOCKER_MODE") == "true":
+        # Run with SSE transport for Docker networking
+        host = os.getenv("MCP_HOST", "0.0.0.0")
+        port = int(os.getenv("MCP_PORT", "8001"))
+        mcp.run(transport="sse", host=host, port=port)
+    else:
+        # Run with stdio for local development
+        mcp.run(show_banner=False)

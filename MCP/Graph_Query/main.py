@@ -275,5 +275,13 @@ def get_code_statistics() -> str:
 
 
 if __name__ == "__main__":
-    # Run the MCP server
-    mcp.run(show_banner=False)
+    import os
+    
+    if os.getenv("DOCKER_MODE") == "true":
+        # Run with SSE transport for Docker networking
+        host = os.getenv("MCP_HOST", "0.0.0.0")
+        port = int(os.getenv("MCP_PORT", "8002"))
+        mcp.run(transport="sse", host=host, port=port)
+    else:
+        # Run with stdio for local development
+        mcp.run(show_banner=False)
