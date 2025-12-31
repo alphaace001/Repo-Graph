@@ -3,47 +3,34 @@ Graph Query MCP Server - FastMCP implementation for knowledge graph traversal.
 Provides tools for executing Cypher queries, finding entities, and analyzing relationships.
 """
 
-import ast
 import sys
-import logging
-import io
 from pathlib import Path
-
-# Suppress ALL logging output that interferes with MCP protocol communication
-logging.disable(logging.CRITICAL)
-logging.getLogger().setLevel(logging.CRITICAL)
-
-# Capture stdout during imports to suppress logging messages
-captured_output = io.StringIO()
-original_stdout = sys.stdout
-sys.stdout = captured_output
+from typing import Optional
 
 # Setup Python paths before importing anything else
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))  # Add KG-Assignment to path
 sys.path.insert(0, str(Path(__file__).parent))  # Add Graph_Query to path
 sys.path.insert(0, str(Path(__file__).parent / "Utils"))  # Add Utils to path
 
-try:
-    import json
-    from typing import Optional, List
-    from fastmcp import FastMCP
-    from Utils.query_service import GraphQueryService
-finally:
-    # Restore stdout
-    sys.stdout = original_stdout
+import json
+from fastmcp import FastMCP
+from logger import get_mcp_safe_logger, mcp_tool_logged, configure_mcp_logging
+from Utils.query_service import GraphQueryService
 
-# Re-enable logging but only for CRITICAL level and to stderr
-logging.disable(logging.NOTSET)
-logging.basicConfig(level=logging.CRITICAL, format="", stream=sys.stderr)
+# Configure MCP-safe logging
+configure_mcp_logging()
+logger = get_mcp_safe_logger(__name__)
 
 # Initialize the MCP server
 mcp = FastMCP("graph-query", version="1.0.0")
 
 # Initialize the query service
 query_service = GraphQueryService()
+logger.info("Graph Query MCP server initialized")
 
 
 @mcp.tool()
+@mcp_tool_logged
 def find_entity(name: str, entity_type: str = "") -> str:
     """
     Search the code knowledge graph for an entity by name, optionally filtered
@@ -78,6 +65,7 @@ def find_entity(name: str, entity_type: str = "") -> str:
 
 
 @mcp.tool()
+@mcp_tool_logged
 def get_dependencies(entity_id: str) -> str:
     """
     Retrieve the outgoing `DEPENDS_ON` relationships for an entity in the
@@ -112,6 +100,7 @@ def get_dependencies(entity_id: str) -> str:
 
 
 @mcp.tool()
+@mcp_tool_logged
 def get_dependents(entity_id: str) -> str:
     """
     Retrieve the incoming `DEPENDS_ON` relationships for an entity in the
@@ -146,6 +135,7 @@ def get_dependents(entity_id: str) -> str:
 
 
 @mcp.tool()
+@mcp_tool_logged
 def trace_imports(module_name: str, max_depth: int = 3) -> str:
     """
     Follow import chain for a module.
@@ -180,6 +170,7 @@ def trace_imports(module_name: str, max_depth: int = 3) -> str:
 
 
 @mcp.tool()
+@mcp_tool_logged
 def find_related(entity_id: str, relationship_type: str) -> str:
     """
     Find entities that are connected to a given node by a specific
@@ -217,6 +208,7 @@ def find_related(entity_id: str, relationship_type: str) -> str:
 
 
 @mcp.tool()
+@mcp_tool_logged
 def execute_query(query: str, parameters: Optional[str] = None) -> str:
     """
     Run custom Cypher query with safety constraints.
@@ -257,6 +249,7 @@ def execute_query(query: str, parameters: Optional[str] = None) -> str:
 
 
 @mcp.tool()
+@mcp_tool_logged
 def get_code_statistics() -> str:
     """
     Get statistics about the indexed codebase.

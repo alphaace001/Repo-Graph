@@ -1,55 +1,44 @@
+"""
+Indexer MCP Server - FastMCP implementation for code indexing.
+Provides tools for extracting entities, ingesting files, and parsing Python AST.
+"""
+
 import ast
 import sys
-import logging
-import io
+import os
 from pathlib import Path
 
-# Suppress ALL logging output that interferes with MCP protocol communication
-# This must happen before any imports that might log
-logging.disable(logging.CRITICAL)
-logging.getLogger().setLevel(logging.CRITICAL)
-
-# Capture stdout during imports to suppress logging messages
-captured_output = io.StringIO()
-original_stdout = sys.stdout
-sys.stdout = captured_output
-
 # Setup Python paths before importing anything else
-sys.path.insert(
-    0, str(Path(__file__).parent.parent.parent)
-)  # Add KG-Assignment to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))  # Add KG-Assignment to path
 sys.path.insert(0, str(Path(__file__).parent))  # Add Indexer to path
 sys.path.insert(0, str(Path(__file__).parent / "Tools"))  # Add Tools to path
 sys.path.insert(0, str(Path(__file__).parent / "Utils"))  # Add Utils to path
 
-try:
-    import json
-    from typing import Optional
-    from fastmcp import FastMCP
-    from Tools.extract_entities import extract_entities
-    from Tools.index_repo import ingest_all_files
-    from Tools.process_single_file import ingest_single_file
-    from Tools.get_python_ast import parse_python_file
-finally:
-    # Restore stdout
-    sys.stdout = original_stdout
+import json
+from fastmcp import FastMCP
+from dotenv import load_dotenv
+from logger import get_mcp_safe_logger, mcp_tool_logged, configure_mcp_logging
+from Tools.extract_entities import extract_entities
+from Tools.index_repo import ingest_all_files
+from Tools.process_single_file import ingest_single_file
+from Tools.get_python_ast import parse_python_file
 
-# Re-enable logging but only for CRITICAL level and to stderr
-logging.disable(logging.NOTSET)
-logging.basicConfig(level=logging.CRITICAL, format="", stream=sys.stderr)
+# Configure MCP-safe logging
+configure_mcp_logging()
+logger = get_mcp_safe_logger(__name__)
 
 # Initialize the MCP server with increased timeout
 mcp = FastMCP("indexer")
 
-import os
-from dotenv import load_dotenv
-
 load_dotenv()
 BASE_PATH = os.getenv("BASE_PATH", "D:\\KGassign\\fastapi")
+
+logger.info(f"Indexer MCP server initialized with BASE_PATH={BASE_PATH}")
 
 
 # Define the tools
 @mcp.tool()
+@mcp_tool_logged
 def extract_entities_tool(file_path: str) -> str:
     """
     Extract entities (functions and classes) from a Python file.
@@ -78,6 +67,7 @@ def extract_entities_tool(file_path: str) -> str:
 
 
 @mcp.tool()
+@mcp_tool_logged
 def ingest_all_files_tool(path: str = "") -> str:
     """
     Ingest all Python files from a codebase into the knowledge graph.
@@ -108,6 +98,7 @@ def ingest_all_files_tool(path: str = "") -> str:
 
 
 @mcp.tool()
+@mcp_tool_logged
 def process_single_file_tool(file_path: str) -> str:
     """
     Process a single Python file and extract metadata.
@@ -128,6 +119,7 @@ def process_single_file_tool(file_path: str) -> str:
 
 
 @mcp.tool()
+@mcp_tool_logged
 def parse_python_file_tool(file_path: str) -> str:
     """
     Parse a Python file and return its AST structure.
@@ -150,8 +142,6 @@ def parse_python_file_tool(file_path: str) -> str:
 
 
 if __name__ == "__main__":
-    import os
-    
     if os.getenv("DOCKER_MODE") == "true":
         # Run with SSE transport for Docker networking
         host = os.getenv("MCP_HOST", "0.0.0.0")

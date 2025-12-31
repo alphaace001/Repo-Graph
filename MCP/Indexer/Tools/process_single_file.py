@@ -17,7 +17,7 @@ from Utils.relationships import (
     create_function_to_function_relationships,
     create_class_to_class_relationships,
 )
-from Database.Neo4j.init import graph, logger
+from Database.Neo4j.initialise import graph, logger
 
 import os
 from dotenv import load_dotenv

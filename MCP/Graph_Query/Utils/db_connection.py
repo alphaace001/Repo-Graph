@@ -8,21 +8,13 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-from logger import setup_logger
+from logger import get_mcp_safe_logger
 
 # Import the shared graph instance from Database.Neo4j
-try:
-    from Database.Neo4j import graph
-except ImportError:
-    # Fallback: try direct import if package structure differs
-    import importlib.util
-    neo4j_path = Path(__file__).parent.parent.parent.parent / "Database" / "Neo4j" / "__init__.py"
-    spec = importlib.util.spec_from_file_location("Database.Neo4j", neo4j_path)
-    neo4j_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(neo4j_module)
-    graph = neo4j_module.graph
+# Import the shared graph instance from Database.Neo4j
+from Database.Neo4j import graph
 
-logger = setup_logger(__name__)
+logger = get_mcp_safe_logger(__name__)
 
 
 class Neo4jConnection:

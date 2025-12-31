@@ -3,11 +3,31 @@ Neo4j database connection management for Analyst MCP.
 Uses the shared Neo4j connection from Database.Neo4j module.
 """
 
+import sys
+from pathlib import Path
 from typing import List, Dict, Any, Optional
-from .logger import setup_logger
-from .neo4j_graph import graph
 
-logger = setup_logger(__name__)
+# Add root path for centralized imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from logger import get_mcp_safe_logger
+try:
+    from Database.Neo4j import graph
+except ImportError:
+    # Handle case where we might need to adjust path or it's not in sys.path yet
+    # But since sys.path.insert is there, it should work.
+    # Fallback to direct import if needed or just fail
+    import importlib.util
+    db_path = Path(__file__).parent.parent.parent.parent / "Database" / "Neo4j" / "__init__.py"
+    if db_path.exists():
+        spec = importlib.util.spec_from_file_location("Database.Neo4j", db_path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["Database.Neo4j"] = module
+        spec.loader.exec_module(module)
+        graph = module.graph
+    else:
+        raise
+
+logger = get_mcp_safe_logger(__name__)
 
 
 class Neo4jConnection:

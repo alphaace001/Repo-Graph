@@ -2,21 +2,27 @@
 Code Analysis Service - Provides deep code understanding and pattern analysis.
 """
 
+import sys
+from pathlib import Path
 from typing import List, Dict, Any, Optional
-from .logger import setup_logger
-from .db_connection import Neo4jConnection
 
-logger = setup_logger(__name__)
+# Add root path for centralized imports
+# Add root path for centralized imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from logger import get_mcp_safe_logger
+from Database.Neo4j.initialise import graph
+
+logger = get_mcp_safe_logger(__name__)
 
 
 class CodeAnalysisService:
     """Service for deep code analysis and pattern detection."""
 
-    def __init__(self, db_connection: Neo4jConnection):
-        """Initialize with an established database connection."""
-        self.db = db_connection
+    def __init__(self):
+        """Initialize with centralized database connection."""
+        self.db = graph
         if self.db is None:
-            raise ValueError("Database connection cannot be None")
+            raise ValueError("Database connection cannot be None. Check Neo4j configuration.")
 
     def get_dependencies(self, entity_id: str) -> List[Dict[str, Any]]:
         """
@@ -40,7 +46,7 @@ class CodeAnalysisService:
             elementId(target) AS target_id
         """
         try:
-            results = self.db.execute_query(query, {"entity_id": entity_id})
+            results = self.db.query(query, {"entity_id": entity_id})
             logger.info(f"Found {len(results)} dependencies for '{entity_id}'")
             return results
         except Exception as e:
@@ -93,7 +99,7 @@ class CodeAnalysisService:
             """
 
         try:
-            results = self.db.execute_query(query, {"function_id": function_id})
+            results = self.db.query(query, {"function_id": function_id})
             if not results:
                 return {"error": f"Function with id '{function_id}' not found"}
 
@@ -217,7 +223,7 @@ class CodeAnalysisService:
             """
 
         try:
-            results = self.db.execute_query(query, {"class_id": class_id})
+            results = self.db.query(query, {"class_id": class_id})
             if not results:
                 return {"error": f"Class with id '{class_id}' not found"}
 
@@ -321,7 +327,7 @@ class CodeAnalysisService:
         """
 
         try:
-            results = self.db.execute_query(query, {"entity_id": entity_id})
+            results = self.db.query(query, {"entity_id": entity_id})
             if not results:
                 return {"error": f"Entity '{entity_id}' not found"}
 

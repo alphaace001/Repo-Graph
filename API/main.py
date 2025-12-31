@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Dict, Any
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -70,10 +70,34 @@ async def lifespan(app: FastAPI):
     """Manage app lifecycle"""
     logger.info("FastAPI Backend Server starting...")
 
-    # Run health check on startup
+    # Initialize MCP Client and Agent FIRST
+    try:
+        logger.info("Initializing MCP Client and Agent...")
+        client = MultiServerMCPClient(MCP_SERVERS)
+        app.state.mcp_client = client
+
+        logger.info("Connecting to MCP servers and retrieving tools...")
+        tools = await client.get_tools()
+        
+        if tools:
+            logger.info(f"Retrieved {len(tools)} tools from MCP servers")
+            app.state.agent = build_agent(tools)
+            logger.info("Agent built and bound successfully")
+        else:
+            logger.warning("No tools retrieved from MCP servers - Agent will not be available")
+            app.state.agent = None
+            
+    except Exception as e:
+        logger.error(f"Failed to initialize MCP Client/Agent: {e}", exc_info=True)
+        app.state.agent = None
+
+    # Run health check using the initialized client
     try:
         logger.info("Running startup health check...")
-        health_status = await health_checker.check_all_services()
+        
+        # Pass the initialized client to health checker
+        client = getattr(app.state, "mcp_client", None)
+        health_status = await health_checker.check_all_services(client=client)
 
         if health_status["overall_status"] == "healthy":
             logger.info("All services are healthy - Server ready")
@@ -161,7 +185,7 @@ async def health_check():
 
 
 @app.post("/api/chat", response_model=ChatResponse, tags=["Chat"])
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, raw_request: Request):
     """
     Send a message and receive a response from the AI agent.
 
@@ -177,26 +201,18 @@ async def chat(request: ChatRequest):
     logger.info(f"Chat request received: {request.query}")
 
     try:
-        # Initialize MCP client with all servers
-        client = MultiServerMCPClient(SERVERS)
-
-        logger.debug("Retrieving tools from MCP servers...")
-        tools = await client.get_tools()
-
-        if not tools:
-            logger.warning("No tools available from MCP servers")
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "status": "error",
-                    "response": "No tools available from MCP servers",
-                },
-            )
-
-        logger.info(f"Retrieved {len(tools)} tools from MCP servers")
-
-        # Build agent with retrieved tools
-        agent = build_agent(tools)
+        # Check if agent is initialized in app state
+        agent = getattr(raw_request.app.state, "agent", None)
+        
+        if not agent:
+             logger.warning("Agent not initialized in app state")
+             return JSONResponse(
+                 status_code=503,
+                 content={
+                     "status": "error",
+                     "response": "AI Agent not initialized. Please check server logs.",
+                 },
+             )
 
         # Prepare messages with user query
         messages = [

@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-from logger import setup_logger
-from Utils.db_connection import Neo4jConnection
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from logger import get_mcp_safe_logger
+from Database.Neo4j.initialise import graph
 
-logger = setup_logger(__name__)
+logger = get_mcp_safe_logger(__name__)
 
 
 class GraphQueryService:
@@ -18,7 +19,7 @@ class GraphQueryService:
 
     def __init__(self):
         """Initialize with database connection."""
-        self.db = Neo4jConnection()
+        self.db = graph
 
     def find_entity(self, name: str, entity_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """
@@ -66,7 +67,7 @@ class GraphQueryService:
             logger.info(f"Searching for any entity with name containing '{name}'")
 
         try:
-            results = self.db.execute_query(query, {"name": name})
+            results = self.db.query(query, {"name": name})
             logger.info(f"Found {len(results)} entities matching '{name}'")
             return results
         except Exception as e:
@@ -96,7 +97,7 @@ class GraphQueryService:
         """
 
         try:
-            results = self.db.execute_query(query, {"entity_id": entity_id})
+            results = self.db.query(query, {"entity_id": entity_id})
             logger.info(f"Found {len(results)} dependencies for entity '{entity_id}'")
             return results
         except Exception as e:
@@ -126,7 +127,7 @@ class GraphQueryService:
         """
 
         try:
-            results = self.db.execute_query(query, {"entity_id": entity_id})
+            results = self.db.query(query, {"entity_id": entity_id})
             logger.info(f"Found {len(results)} dependents of '{entity_id}'")
             return results
         except Exception as e:
@@ -158,7 +159,7 @@ class GraphQueryService:
         )
 
         try:
-            results = self.db.execute_query(query, {"module_name": module_name})
+            results = self.db.query(query, {"module_name": module_name})
             logger.info(f"Found {len(results)} import paths for module '{module_name}'")
             return results
         except Exception as e:
@@ -215,7 +216,7 @@ class GraphQueryService:
         """
 
         try:
-            results = self.db.execute_query(
+            results = self.db.query(
                 query, {"entity_id": entity_id, "rel_type": relationship_type}
             )
             logger.info(
@@ -256,7 +257,7 @@ class GraphQueryService:
             raise ValueError("System procedure calls not allowed for security reasons")
 
         try:
-            results = self.db.execute_query(query, parameters)
+            results = self.db.query(query, parameters)
             logger.info(f"Custom query executed successfully, returned {len(results)} results")
             return results
         except Exception as e:
@@ -280,7 +281,7 @@ class GraphQueryService:
         """
 
         try:
-            results = self.db.execute_query(query)
+            results = self.db.query(query)
             if results:
                 return results[0]
             return {}
@@ -306,7 +307,7 @@ class GraphQueryService:
         """
 
         try:
-            results = self.db.execute_query(query)
+            results = self.db.query(query)
             logger.info(f"Found {len(results)} circular dependencies")
             return results
         except Exception as e:
@@ -333,7 +334,7 @@ class GraphQueryService:
         """
 
         try:
-            results = self.db.execute_query(query)
+            results = self.db.query(query)
             logger.info(f"Found {len(results)} entities of type '{entity_type}'")
             return results
         except Exception as e:

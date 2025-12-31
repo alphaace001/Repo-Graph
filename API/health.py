@@ -12,6 +12,7 @@ from typing import Dict, Any
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_mcp_adapters.tools import load_mcp_tools
 
 # Setup Python paths
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -84,12 +85,15 @@ class HealthChecker:
             logger.warning(f" Knowledge Graph check failed: {str(e)}")
             return False
 
-    async def check_mcp_service(self, service_name: str) -> bool:
+    async def check_mcp_service(
+        self, service_name: str, client: MultiServerMCPClient = None
+    ) -> bool:
         """
         Check if a specific MCP service is live by attempting to connect and retrieve tools
 
         Args:
             service_name: Name of the service (graph_query, analyst, or indexer)
+            client: Optional existing MCP client to use
 
         Returns:
             bool: True if service is responding and tools retrieved, False otherwise
@@ -103,12 +107,25 @@ class HealthChecker:
         try:
             logger.debug(f"Checking {service_display_name} connectivity...")
 
-            # Create a single-server client for this service
-            servers_config = {service_name: self.mcp_services[service_name]}
-            client = MultiServerMCPClient(servers_config)
-
-            # Try to connect and retrieve tools - if successful, service is up
-            tools = await asyncio.wait_for(client.get_tools(), timeout=self.timeout)
+            tools = []
+            if client:
+                # Use existing client sesssion
+                try:
+                    async with client.session(service_name) as session:
+                        tools = await asyncio.wait_for(
+                            load_mcp_tools(session), timeout=self.timeout
+                        )
+                except Exception as e:
+                    # Reraise as BaseException or handle specific errors to match below catch
+                    raise e
+            else:
+                # Create a single-server client for this service (Legacy mode)
+                servers_config = {service_name: self.mcp_services[service_name]}
+                local_client = MultiServerMCPClient(servers_config)
+                # Try to connect and retrieve tools
+                tools = await asyncio.wait_for(
+                    local_client.get_tools(), timeout=self.timeout
+                )
 
             if tools is not None and len(tools) > 0:
                 logger.info(
@@ -128,7 +145,9 @@ class HealthChecker:
             logger.warning(f" {service_display_name} check failed: {error_msg}")
             return False
 
-    async def check_mcp_services(self) -> Dict[str, Dict[str, Any]]:
+    async def check_mcp_services(
+        self, client: MultiServerMCPClient = None
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Check all MCP services in parallel
 
@@ -141,7 +160,7 @@ class HealthChecker:
 
         # Check all services in parallel
         tasks = {
-            service_name: self.check_mcp_service(service_name)
+            service_name: self.check_mcp_service(service_name, client)
             for service_name in self.mcp_services.keys()
         }
 
@@ -168,7 +187,9 @@ class HealthChecker:
 
         return results
 
-    async def check_all_services(self) -> Dict[str, Any]:
+    async def check_all_services(
+        self, client: MultiServerMCPClient = None
+    ) -> Dict[str, Any]:
         """
         Check all services (Knowledge Graph + MCP services)
 
@@ -181,7 +202,7 @@ class HealthChecker:
         kg_alive = await self.check_knowledge_graph()
 
         # Check MCP services in parallel
-        mcp_statuses = await self.check_mcp_services()
+        mcp_statuses = await self.check_mcp_services(client)
 
         # Calculate overall status
         mcp_healthy = all(

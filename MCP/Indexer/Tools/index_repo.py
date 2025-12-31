@@ -18,8 +18,7 @@ from Utils.relationships import (
 )
 
 from logger import LogContext, log_with_context
-
-from Database.Neo4j.init import graph, logger
+from Database.Neo4j.initialise import graph, logger
 import os
 from dotenv import load_dotenv
 

@@ -4,54 +4,36 @@ Provides tools for analyzing functions, classes, design patterns, code snippets,
 """
 
 import sys
-import logging
-import io
 from pathlib import Path
 
-# Suppress ALL logging output that interferes with MCP protocol communication
-logging.disable(logging.CRITICAL)
-logging.getLogger().setLevel(logging.CRITICAL)
-
-# Capture stdout during imports to suppress logging messages
-captured_output = io.StringIO()
-original_stdout = sys.stdout
-sys.stdout = captured_output
-
-# Setup Python paths for local modules
+# Setup Python paths for local modules BEFORE any imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))  # Add KG-Assignment to path
 sys.path.insert(0, str(Path(__file__).parent))  # Add Analyst to path
 
-try:
-    import json
-    from typing import Optional, List
-    from fastmcp import FastMCP
-    from Utils.analysis_service import CodeAnalysisService
-    from Utils.db_connection import Neo4jConnection
-finally:
-    # Restore stdout
-    sys.stdout = original_stdout
+import json
+from fastmcp import FastMCP
+from logger import get_mcp_safe_logger, mcp_tool_logged, configure_mcp_logging
+from Utils.analysis_service import CodeAnalysisService
 
-# Re-enable logging but only for CRITICAL level and to stderr
-logging.disable(logging.NOTSET)
-logging.basicConfig(level=logging.CRITICAL, format="", stream=sys.stderr)
+# Configure MCP-safe logging
+configure_mcp_logging()
+logger = get_mcp_safe_logger(__name__)
 
 # Initialize the MCP server
 mcp = FastMCP("analyst", version="1.0.0")
 
-# Initialize database connection FIRST, before service initialization
-# print("Establishing Neo4j connection...", file=sys.stderr)
+# Initialize the analysis service
+# Database connection is handled internally via Database.Neo4j
 try:
-    db_connection = Neo4jConnection()
-    # print("✓ Successfully connected to Neo4j database", file=sys.stderr)
+    analysis_service = CodeAnalysisService()
+    logger.info("Analysis service initialized successfully")
 except Exception as e:
-    error_msg = f"✗ Failed to connect to Neo4j: {str(e)}"
-    # print(error_msg, file=sys.stderr)
+    logger.error(f"Failed to initialize analysis service: {str(e)}")
     sys.exit(1)
-
-# Initialize the analysis service with the established connection
-analysis_service = CodeAnalysisService(db_connection)
 
 
 @mcp.tool()
+@mcp_tool_logged
 def analyze_function(function_id: str, include_calls: bool = True) -> str:
     """
     Analyze a function node in the code knowledge graph and return its metadata,
@@ -87,6 +69,7 @@ def analyze_function(function_id: str, include_calls: bool = True) -> str:
 
 
 @mcp.tool()
+@mcp_tool_logged
 def analyze_class(class_id: str, include_methods: bool = True) -> str:
     """
     Analyze a class node in the code knowledge graph and return its metadata,
@@ -120,6 +103,7 @@ def analyze_class(class_id: str, include_methods: bool = True) -> str:
 
 
 @mcp.tool()
+@mcp_tool_logged
 def get_code_snippet(entity_id: str, context_lines: int = 5) -> str:
     """
     Extract code snippet with surrounding context.
