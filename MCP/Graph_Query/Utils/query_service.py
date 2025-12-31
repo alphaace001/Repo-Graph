@@ -222,41 +222,6 @@ class GraphQueryService:
             logger.error(f"Error finding related entities for '{entity_name}': {str(e)}")
             return e
 
-    def find_usage_patterns(self, entity_name: str) -> List[Dict[str, Any]]:
-        """
-        Identify usage patterns for an entity across the codebase.
-
-        Args:
-            entity_name: Name of the entity
-
-        Returns:
-            List of usage patterns
-        """
-        query = """
-        MATCH (entity {name: $entity_name})
-        OPTIONAL MATCH (entity)<-[r1:DEPENDS_ON]-(user1)
-        OPTIONAL MATCH (entity)<-[r2:DECORATED_BY]-(user2)
-        OPTIONAL MATCH (entity)<-[r3:INHERITS_FROM]-(user3)
-        OPTIONAL MATCH (entity)-[r4:CONTAINS]->(child)
-        OPTIONAL MATCH (entity)-[r5:IMPORTS]->(imported)
-        RETURN 
-            entity.name as entity_name,
-            labels(entity)[0] as entity_type,
-            collect(DISTINCT {name: user1.name, type: labels(user1)[0], rel: 'DEPENDS_ON'}) as depended_by,
-            collect(DISTINCT {name: user2.name, type: labels(user2)[0], rel: 'DECORATED_BY'}) as decorated_by,
-            collect(DISTINCT {name: user3.name, type: labels(user3)[0], rel: 'INHERITS_FROM'}) as inherited_by,
-            collect(DISTINCT {name: child.name, type: labels(child)[0]}) as contains,
-            collect(DISTINCT {name: imported.name, type: labels(imported)[0]}) as imports
-        """
-
-        try:
-            results = self.db.execute_query(query, {"entity_name": entity_name})
-            logger.info(f"Found usage patterns for '{entity_name}'")
-            return results
-        except Exception as e:
-            logger.error(f"Error finding usage patterns for '{entity_name}': {str(e)}")
-            raise
-
     def execute_custom_query(self, query: str, parameters: dict = None) -> List[Dict[str, Any]]:
         """
         Execute a custom Cypher query with safety constraints.

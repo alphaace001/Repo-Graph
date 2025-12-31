@@ -237,30 +237,6 @@ def execute_query(query: str, parameters: Optional[str] = None) -> str:
 
 
 @mcp.tool()
-def find_usage_patterns(entity_name: str) -> str:
-    """
-    Identify usage patterns across the codebase.
-
-    Analyzes an entity and returns all the ways it's used throughout
-    the codebase, including what depends on it, what it imports, and
-    what uses it as a decorator or base class.
-
-    Args:
-        entity_name: Name of the entity to analyze
-
-    Returns:
-        JSON string containing comprehensive usage patterns
-    """
-    try:
-        results = query_service.find_usage_patterns(entity_name)
-        return json.dumps(
-            {"status": "success", "entity": entity_name, "usage_patterns": results}, default=str
-        )
-    except Exception as e:
-        return json.dumps({"status": "error", "message": str(e)})
-
-
-@mcp.tool()
 def get_code_statistics() -> str:
     """
     Get statistics about the indexed codebase.
