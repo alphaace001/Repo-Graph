@@ -39,13 +39,13 @@ logging.basicConfig(level=logging.CRITICAL, format="", stream=sys.stderr)
 mcp = FastMCP("analyst", version="1.0.0")
 
 # Initialize database connection FIRST, before service initialization
-print("Establishing Neo4j connection...", file=sys.stderr)
+# print("Establishing Neo4j connection...", file=sys.stderr)
 try:
     db_connection = Neo4jConnection()
-    print("✓ Successfully connected to Neo4j database", file=sys.stderr)
+    # print("✓ Successfully connected to Neo4j database", file=sys.stderr)
 except Exception as e:
     error_msg = f"✗ Failed to connect to Neo4j: {str(e)}"
-    print(error_msg, file=sys.stderr)
+    # print(error_msg, file=sys.stderr)
     sys.exit(1)
 
 # Initialize the analysis service with the established connection
@@ -139,4 +139,4 @@ def get_code_snippet(entity_id: str, context_lines: int = 5) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(show_banner=False)

@@ -256,4 +256,4 @@ def get_code_statistics() -> str:
 
 if __name__ == "__main__":
     # Run the MCP server
-    mcp.run()
+    mcp.run(show_banner=False)

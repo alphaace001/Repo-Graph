@@ -151,4 +151,4 @@ def parse_python_file_tool(file_path: str) -> str:
 
 if __name__ == "__main__":
     # Start the MCP server
-    mcp.run()
+    mcp.run(show_banner=False)
