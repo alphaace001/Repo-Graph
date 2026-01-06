@@ -241,20 +241,41 @@ docker-compose up analyst --build -d
 
 ```
 KG-Assignment/
-├── API/                  # FastAPI backend
-│   ├── main.py          # API server with chat endpoint
-│   └── health.py        # Health check module
-├── MCP/                  # MCP Services
-│   ├── Analyst/         # Code analysis service
-│   ├── Graph_Query/     # Graph querying service
-│   └── Indexer/         # Code indexing service
-├── Client/              # LLM client and agent
-├── Database/            # Neo4j connection
-├── main.py              # Entry point
-├── config.py            # Configuration
-├── docker-compose.yml   # Docker orchestration
-├── Dockerfile           # API container
-└── requirements.txt     # Python dependencies
+├── API/                      # FastAPI backend
+│   ├── main.py              # API server with chat endpoint
+│   ├── health.py            # Health check module
+│   └── indexing.py          # Indexing API endpoints
+├── MCP/                      # MCP Services
+│   ├── Analyst/             # Code analysis service
+│   │   ├── Dockerfile
+│   │   ├── main.py
+│   │   ├── Utils/           # Analysis utilities
+│   │   └── requirements.txt
+│   ├── Graph_Query/         # Graph querying service
+│   │   ├── Dockerfile
+│   │   ├── main.py
+│   │   ├── Utils/           # Query utilities
+│   │   └── requirements.txt
+│   └── Indexer/             # Code indexing service
+│       ├── Dockerfile
+│       ├── main.py
+│       ├── Utils/           # Indexing utilities
+│       └── requirements.txt
+├── Client/                   # LLM client and agent
+│   ├── agent.py             # Agent implementation
+│   ├── client.py            # MCP client
+│   ├── llm.py               # LLM configuration
+│   └── prompt.py            # System prompts
+├── Database/                 # Database connection
+│   └── Neo4j/               # Neo4j graph database
+├── main.py                   # Entry point
+├── config.py                 # Configuration
+├── logger.py                 # Centralized logging
+├── docker-compose.yml        # Docker orchestration
+├── Dockerfile                # API container
+├── .example.env              # Environment template
+├── pyproject.toml            # Python project config (uv)
+└── requirements.txt          # Python dependencies
 ```
 
 </details>
