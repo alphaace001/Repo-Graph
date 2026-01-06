@@ -190,17 +190,21 @@ The API will start at http://localhost:8000
 </details>
 
 <details>
-<summary><strong>🐳 Option 2: Docker Compose </strong></summary>
+<summary><strong>🐳 Option 2: Docker Compose</strong></summary>
 
-Work in progress, soon will be updated
-<!-- 
-Run all services with a single command:
+### 1. Setup the .env file
+
+Create a `.env` file in the root directory with the same content as the `.example.env` file and fill in your values.
+
+### 2. Run Docker Compose
+
+Make sure Docker Desktop is running, then:
 
 ```bash
-# Start all services
+# Build and start all services
 docker-compose up --build
 
-# Run in background
+# Or run in background (detached mode)
 docker-compose up --build -d
 
 # Stop all services
@@ -214,20 +218,11 @@ docker-compose down
 | API | http://localhost:8000 |
 | API Docs | http://localhost:8000/docs |
 | Health Check | http://localhost:8000/health |
-| Neo4j Browser | http://localhost:7474 |
 | Analyst MCP | http://localhost:8001/sse |
 | Graph Query MCP | http://localhost:8002/sse |
 | Indexer MCP | http://localhost:8003/sse |
 
-### Environment Variables
-
-Create a `.env` file or set these variables:
-
-```bash
-NEO4J_PASSWORD=your_password
-```
-
-</details> --> 
+</details> 
 
 <!-- <details>
 <summary><strong>🔌 Running Individual MCP Services</strong></summary>
