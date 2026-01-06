@@ -26,6 +26,7 @@ load_dotenv()
 
 from logger import setup_logger
 from health import HealthChecker
+from indexing import router as indexing_router
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from config import MCP_SERVERS, API_PORT, API_HOST, AGENT_RECURSION_LIMIT
 
@@ -135,6 +136,9 @@ app.add_middleware(
 # Initialize health checker
 health_checker = HealthChecker()
 
+# Include routers
+app.include_router(indexing_router)
+
 # MCP Servers configuration for chat endpoint (shared from config)
 SERVERS = MCP_SERVERS
 
@@ -146,6 +150,7 @@ async def root():
         "message": "Welcome to Knowledge Graph Backend API",
         "docs": "/docs",
         "health": "/health",
+        "indexing": "/api/index",
     }
 
 
