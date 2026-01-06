@@ -97,27 +97,6 @@ graph LR
 
 </details>
 
-<!-- <details>
-<summary><strong>🏗️ Architecture</strong></summary>
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      API Server (:8000)                     │
-│                   FastAPI Backend + Agent                   │
-└──────────────┬──────────────┬──────────────┬────────────────┘
-               │              │              │
-      ┌────────▼──────┐ ┌─────▼─────┐ ┌──────▼──────┐
-      │   Analyst     │ │Graph Query│ │   Indexer   │
-      │   (:8001)     │ │  (:8002)  │ │   (:8003)   │
-      └───────────────┘ └─────┬─────┘ └─────────────┘
-                              │
-                    ┌─────────▼─────────┐
-                    │   Neo4j (:7687)   │
-                    │   Browser (:7474) │
-                    └───────────────────┘
-```
-
-</details> -->
 
 ---
 
@@ -224,57 +203,36 @@ docker-compose down
 
 </details> 
 
-<!-- <details>
+<details>
 <summary><strong>🔌 Running Individual MCP Services</strong></summary>
 
-Each MCP service can be run standalone for development or testing.
-
-### Analyst Service
+You can run individual MCP services using docker-compose:
 
 ```bash
-cd MCP/Analyst
-pip install -r requirements.txt
-python main.py
+# Run only the Analyst service
+docker-compose up analyst --build
+
+# Run only the Graph Query service
+docker-compose up graph-query --build
+
+# Run only the Indexer service
+docker-compose up indexer --build
+
+# Run in background (detached mode)
+docker-compose up analyst --build -d
 ```
 
-### Graph Query Service
+### Service URLs
 
-```bash
-cd MCP/Graph_Query
-pip install -r requirements.txt
-python main.py
-```
+| Service | URL |
+|---------|-----|
+| Analyst MCP | http://localhost:8001/sse |
+| Graph Query MCP | http://localhost:8002/sse |
+| Indexer MCP | http://localhost:8003/sse |
 
-### Indexer Service
+> **Note**: Make sure Docker Desktop is running and your `.env` file is configured before starting services.
 
-```bash
-cd MCP/Indexer
-pip install -r requirements.txt
-python main.py
-```
-
-> **Note**: When running locally, MCP services use **stdio** transport. When running in Docker, they use **SSE** transport on their respective ports.
-
-</details> -->
-
-<!-- ---
-
-<details>
-<summary><strong>📡 API Endpoints</strong></summary>
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Root endpoint |
-| GET | `/health` | Health check for all services |
-| POST | `/api/chat` | Chat with the AI agent |
-
-### Chat Example
-
-```bash
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Find all functions in the codebase"}'
-``` -->
+</details>
 
 </details>
 
