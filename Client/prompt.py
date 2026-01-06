@@ -8,7 +8,7 @@ Class{ id, name, start_line, end_line }
 Function{ id, name, start_line, end_line }
 Method{ id, name, parent_class, start_line, end_line }
 Parameter{ id, name, pairs }
-Docstring{ id, content }
+Docstring{ id, content, name }
 
 Relationships:
 CONTAINS, DEPENDS_ON, DOCUMENTED_BY, HAS_PARAMETER, IMPORTS, INHERITS_FROM, DECORATED_BY
@@ -21,6 +21,8 @@ Structure:
 
 Rules:
 - Always use tools to explore nodes and relationships; retrieve → interpret → reason → answer.
+- The name of the docstring is created in the following format: "<entity_type>_<entity_id>_docstring", entity type can be module, function, class or method
+    example: name: "function_4:4e0608ca-6769-4afb-b4c8-37c5ada3cf11:109_docstring"
 - Prefer targeted traversal. Do not invent entities or relationships.
 - If information is not in the KG, explicitly state that it is missing.
 

@@ -17,6 +17,9 @@ def create_react(llm_with_tools):
         # print("INside model function")
         # print("State:", state["messages"][-1])
         response = llm_with_tools.invoke(state["messages"])
+        if hasattr(response, "tool_calls") and response.tool_calls:
+            for tc in response.tool_calls:
+                print(f"🔧 Tool: {tc['name']} | Args: {tc['args']}")
         if (
             response.response_metadata["finish_reason"] != "STOP"
             and response.response_metadata["finish_reason"] != "stop"
