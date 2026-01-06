@@ -58,7 +58,7 @@ async def main():
             ("human", "Compare how Path and Query parameters are implemented"),
         ]
         response = await agent.ainvoke({"messages": messages}, {"recursion_limit": 150})
-        print(response["messages"][-1].content)
+        # print(response["messages"][-1].content)
         return response["messages"][-1].content
 
         # llm_with_tools = llm.bind_tools(tools)

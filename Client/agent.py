@@ -14,8 +14,8 @@ class AgentState(TypedDict):
 
 def create_react(llm_with_tools):
     def model(state: AgentState):
-        print("INside model function")
-        print("State:", state["messages"][-1])
+        # print("INside model function")
+        # print("State:", state["messages"][-1])
         response = llm_with_tools.invoke(state["messages"])
         if (
             response.response_metadata["finish_reason"] != "STOP"
