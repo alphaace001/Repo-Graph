@@ -141,7 +141,30 @@ cd KG-Assignment
 <details>
 <summary><strong>💻 Option 1: Local Development</strong></summary>
 
-### 1. Setup Virtual Environment
+### 1. Install uv (Recommended)
+
+[uv](https://docs.astral.sh/uv/) is a fast Python package manager. Install it first:
+
+```bash
+# Windows (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Linux/Mac
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### 2. Setup the .env file
+
+Create a `.env` file in the root directory with the same content as the `.example.env` file.
+
+### 3. Run the API Server
+
+```bash
+uv run main.py
+```
+
+<details>
+<summary>Alternative: Using pip</summary>
 
 ```bash
 # Create virtual environment
@@ -155,18 +178,12 @@ source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
-```
 
-
-### 2. Setup the .env file
-
-Create a `.env` file in the root directory with same as the .env.example file:
-
-### 3. Run the API Server
-
-```bash
+# Run the server
 python main.py
 ```
+
+</details>
 
 The API will start at http://localhost:8000
 
@@ -210,7 +227,7 @@ Create a `.env` file or set these variables:
 NEO4J_PASSWORD=your_password
 ```
 
-</details> --> -->
+</details> --> 
 
 <!-- <details>
 <summary><strong>🔌 Running Individual MCP Services</strong></summary>
