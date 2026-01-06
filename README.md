@@ -2,6 +2,10 @@
 
 A FastAPI-based Knowledge Graph system with MCP (Model Context Protocol) services for code analysis, graph querying, and indexing.
 
+## 🎬 Demo Video
+
+[Watch the Demo Video](https://drive.google.com/file/d/1HDMWxYffqYZF6ciWjLX1TNpgo755vnNq/view?usp=sharing)
+
 <details>
 <summary><strong>📊 Approach: Knowledge Graph Schema</strong></summary>
 
@@ -93,7 +97,7 @@ graph LR
 
 </details>
 
-<details>
+<!-- <details>
 <summary><strong>🏗️ Architecture</strong></summary>
 
 ```
@@ -113,7 +117,7 @@ graph LR
                     └───────────────────┘
 ```
 
-</details>
+</details> -->
 
 ---
 
@@ -135,8 +139,44 @@ cd KG-Assignment
 ---
 
 <details>
-<summary><strong>🐳 Option 1: Docker Compose (Recommended)</strong></summary>
+<summary><strong>💻 Option 1: Local Development</strong></summary>
 
+### 1. Setup Virtual Environment
+
+```bash
+# Create virtual environment
+python -m venv .venv
+
+# Activate (Windows)
+.venv\Scripts\activate
+
+# Activate (Linux/Mac)
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+
+### 2. Setup the .env file
+
+Create a `.env` file in the root directory with same as the .env.example file:
+
+### 3. Run the API Server
+
+```bash
+python main.py
+```
+
+The API will start at http://localhost:8000
+
+</details>
+
+<details>
+<summary><strong>🐳 Option 2: Docker Compose </strong></summary>
+
+Work in progress, soon will be updated
+<!-- 
 Run all services with a single command:
 
 ```bash
@@ -170,62 +210,9 @@ Create a `.env` file or set these variables:
 NEO4J_PASSWORD=your_password
 ```
 
-</details>
+</details> --> -->
 
-<details>
-<summary><strong>💻 Option 2: Local Development</strong></summary>
-
-### 1. Setup Virtual Environment
-
-```bash
-# Create virtual environment
-python -m venv .venv
-
-# Activate (Windows)
-.venv\Scripts\activate
-
-# Activate (Linux/Mac)
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### 2. Start Neo4j
-
-Either run Neo4j locally or use Docker:
-
-```bash
-docker run -d \
-  --name neo4j \
-  -p 7474:7474 -p 7687:7687 \
-  -e NEO4J_AUTH=neo4j/password \
-  neo4j:5.15-community
-```
-
-### 3. Configure Environment
-
-Create a `.env` file:
-
-```bash
-NEO4J_URL=neo4j://localhost:7687
-NEO4J_USERNAME=neo4j
-NEO4J_PASSWORD=password
-API_HOST=0.0.0.0
-API_PORT=8000
-```
-
-### 4. Run the API Server
-
-```bash
-python main.py
-```
-
-The API will start at http://localhost:8000
-
-</details>
-
-<details>
+<!-- <details>
 <summary><strong>🔌 Running Individual MCP Services</strong></summary>
 
 Each MCP service can be run standalone for development or testing.
@@ -256,9 +243,9 @@ python main.py
 
 > **Note**: When running locally, MCP services use **stdio** transport. When running in Docker, they use **SSE** transport on their respective ports.
 
-</details>
+</details> -->
 
----
+<!-- ---
 
 <details>
 <summary><strong>📡 API Endpoints</strong></summary>
@@ -275,7 +262,7 @@ python main.py
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
   -d '{"query": "Find all functions in the codebase"}'
-```
+``` -->
 
 </details>
 
