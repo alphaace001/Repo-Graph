@@ -32,7 +32,7 @@ A FastAPI-based Knowledge Graph system with MCP (Model Context Protocol) service
 ### Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/alphaace001/KG-Assignment.git
 cd KG-Assignment
 ```
 
@@ -222,31 +222,3 @@ KG-Assignment/
 ```
 
 ---
-
-## Troubleshooting
-
-### Port Already in Use
-```bash
-# Find and kill process using the port
-netstat -ano | findstr :8000
-taskkill /PID <PID> /F
-```
-
-### Neo4j Connection Failed
-- Ensure Neo4j is running: `docker ps`
-- Check credentials in `.env`
-- Verify URL format: `neo4j://localhost:7687`
-
-### Docker Build Issues
-```bash
-# Clean rebuild
-docker-compose down -v
-docker-compose build --no-cache
-docker-compose up
-```
-
----
-
-## License
-
-MIT License
