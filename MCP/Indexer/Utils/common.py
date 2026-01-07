@@ -3,11 +3,8 @@ Common utilities for symbol classification and AST operations.
 Consolidates duplicate logic following DRY principle.
 """
 import ast
-import sys
-from pathlib import Path
 from typing import Tuple, Optional, Dict, Any
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from logger import setup_logger
 
 logger = setup_logger(__name__)

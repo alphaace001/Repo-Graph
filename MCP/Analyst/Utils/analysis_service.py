@@ -2,13 +2,8 @@
 Code Analysis Service - Provides deep code understanding and pattern analysis.
 """
 
-import sys
-from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-# Add root path for centralized imports
-# Add root path for centralized imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import get_mcp_safe_logger
 from Database.Neo4j.initialise import graph
 

@@ -2,12 +2,8 @@
 Graph Query Service - Executes Cypher queries for knowledge graph traversal.
 """
 
-import sys
-from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import get_mcp_safe_logger
 from Database.Neo4j.initialise import graph
 

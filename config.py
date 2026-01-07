@@ -19,6 +19,7 @@ server_env = os.environ.copy()
 server_env["FASTMCP_QUIET"] = "1"
 server_env["MCP_LOGGING_MODE"] = "both"
 server_env["MCP_LOG_FILE"] = str(BASE_PATH / "mcp_server.log")
+server_env["PYTHONPATH"] = str(BASE_PATH)  # Add project root to Python path for subprocess imports
 
 # Check if running in Docker mode
 DOCKER_MODE = os.getenv("DOCKER_MODE", "false").lower() == "true"

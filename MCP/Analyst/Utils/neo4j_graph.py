@@ -4,14 +4,10 @@ Standalone implementation for containerized deployment.
 """
 
 import os
-import sys
-from pathlib import Path
 from typing import List, Dict, Any
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 
-# Add root path for centralized imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import get_mcp_safe_logger
 
 logger = get_mcp_safe_logger(__name__)

@@ -4,24 +4,16 @@ Provides tools for extracting entities, ingesting files, and parsing Python AST.
 """
 
 import ast
-import sys
 import os
-from pathlib import Path
-
-# Setup Python paths before importing anything else
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))  # Add KG-Assignment to path
-sys.path.insert(0, str(Path(__file__).parent))  # Add Indexer to path
-sys.path.insert(0, str(Path(__file__).parent / "Tools"))  # Add Tools to path
-sys.path.insert(0, str(Path(__file__).parent / "Utils"))  # Add Utils to path
-
 import json
 from fastmcp import FastMCP
 from dotenv import load_dotenv
+
 from logger import get_mcp_safe_logger, mcp_tool_logged, configure_mcp_logging
-from Tools.extract_entities import extract_entities
-from Tools.index_repo import ingest_all_files
-from Tools.process_single_file import ingest_single_file
-from Tools.get_python_ast import parse_python_file
+from MCP.Indexer.Tools.extract_entities import extract_entities
+from MCP.Indexer.Tools.index_repo import ingest_all_files
+from MCP.Indexer.Tools.process_single_file import ingest_single_file
+from MCP.Indexer.Tools.get_python_ast import parse_python_file
 
 # Configure MCP-safe logging
 configure_mcp_logging()

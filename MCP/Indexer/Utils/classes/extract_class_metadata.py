@@ -1,19 +1,11 @@
 import ast
-import sys
-from pathlib import Path
 from typing import Dict, Set
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import setup_logger
-from common import classify_symbol, extract_dotted_name_from_node
+from MCP.Indexer.Utils.common import classify_symbol, extract_dotted_name_from_node
+from MCP.Indexer.Utils.functions.function_metadata import extract_function_metadata
 
 logger = setup_logger(__name__)
-
-# Import from local relative path
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from functions.function_metadata import extract_function_metadata
 
 
 def extract_method_metadata_from_body(body, lookup_codebase, lookup_library):

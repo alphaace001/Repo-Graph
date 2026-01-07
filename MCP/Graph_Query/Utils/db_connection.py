@@ -3,14 +3,10 @@ Neo4j database connection management for Graph Query MCP.
 Uses the shared Neo4j connection from Database.Neo4j module.
 """
 
-import sys
-from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import get_mcp_safe_logger
 
-# Import the shared graph instance from Database.Neo4j
 # Import the shared graph instance from Database.Neo4j
 from Database.Neo4j import graph
 

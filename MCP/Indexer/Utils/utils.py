@@ -1,6 +1,5 @@
-import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 from logger import setup_logger
 
 logger = setup_logger(__name__)

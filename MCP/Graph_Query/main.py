@@ -3,19 +3,13 @@ Graph Query MCP Server - FastMCP implementation for knowledge graph traversal.
 Provides tools for executing Cypher queries, finding entities, and analyzing relationships.
 """
 
-import sys
-from pathlib import Path
-from typing import Optional
-
-# Setup Python paths before importing anything else
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))  # Add KG-Assignment to path
-sys.path.insert(0, str(Path(__file__).parent))  # Add Graph_Query to path
-sys.path.insert(0, str(Path(__file__).parent / "Utils"))  # Add Utils to path
-
+import os
 import json
+from typing import Optional
 from fastmcp import FastMCP
+
 from logger import get_mcp_safe_logger, mcp_tool_logged, configure_mcp_logging
-from Utils.query_service import GraphQueryService
+from MCP.Graph_Query.Utils.query_service import GraphQueryService
 
 # Configure MCP-safe logging
 configure_mcp_logging()

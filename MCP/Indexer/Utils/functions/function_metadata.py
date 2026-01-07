@@ -1,11 +1,8 @@
 import ast
-import sys
-from pathlib import Path
 from typing import Dict
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import setup_logger
-from common import classify_symbol, collect_ast_walk_symbols, extract_name_from_ast_node
+from MCP.Indexer.Utils.common import classify_symbol, collect_ast_walk_symbols, extract_name_from_ast_node
 
 logger = setup_logger(__name__)
 

@@ -1,20 +1,12 @@
 import ast
-import sys
 from pathlib import Path
 from typing import Dict, List
 
-# Add KG-Assignment to path for logger and other modules
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-# Add Utils directory for common and other shared modules
-sys.path.insert(0, str(Path(__file__).parent / "Utils"))
-# Add current Indexer directory for relative Utils imports
-sys.path.insert(0, str(Path(__file__).parent))
-
-from Utils.functions.function_metadata import extract_function_metadata
-from Utils.classes.extract_class_metadata import extract_class_metadata
-from Utils.functions.function_utils import build_codebase_symbol_lookup
-from Utils.import_utils import collect_grouped_imports, classify_imports
-from Utils.utils import load_code
+from MCP.Indexer.Utils.functions.function_metadata import extract_function_metadata
+from MCP.Indexer.Utils.classes.extract_class_metadata import extract_class_metadata
+from MCP.Indexer.Utils.functions.function_utils import build_codebase_symbol_lookup
+from MCP.Indexer.Utils.import_utils import collect_grouped_imports, classify_imports
+from MCP.Indexer.Utils.utils import load_code
 
 
 def _extract_arguments_from_metadata(func_meta: dict) -> List[Dict]:

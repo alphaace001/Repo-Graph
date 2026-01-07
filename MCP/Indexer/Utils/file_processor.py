@@ -4,21 +4,19 @@ File processor module - Processes individual Python files and extracts metadata.
 
 import ast
 import logging
-import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import setup_logger, log_with_context
 
-from utils import load_code
-from import_utils import collect_grouped_imports, classify_imports
-from functions.function_utils import build_codebase_symbol_lookup
-from functions.function_metadata import extract_function_metadata
-from functions.ingest_function_to_graph import ingest_functions_to_graph
-from classes.extract_class_metadata import extract_class_metadata
-from classes.ingest_class_to_graph import ingest_classes_to_graph
-from ingest_module_to_graph import ingest_module_to_graph
+from MCP.Indexer.Utils.utils import load_code
+from MCP.Indexer.Utils.import_utils import collect_grouped_imports, classify_imports
+from MCP.Indexer.Utils.functions.function_utils import build_codebase_symbol_lookup
+from MCP.Indexer.Utils.functions.function_metadata import extract_function_metadata
+from MCP.Indexer.Utils.functions.ingest_function_to_graph import ingest_functions_to_graph
+from MCP.Indexer.Utils.classes.extract_class_metadata import extract_class_metadata
+from MCP.Indexer.Utils.classes.ingest_class_to_graph import ingest_classes_to_graph
+from MCP.Indexer.Utils.ingest_module_to_graph import ingest_module_to_graph
 
 logger = setup_logger(__name__)
 

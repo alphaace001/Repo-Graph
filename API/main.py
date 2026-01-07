@@ -3,10 +3,8 @@ FastAPI Backend Server with Health Check API
 """
 
 import os
-import sys
 import asyncio
 import httpx
-from pathlib import Path
 from typing import Dict, Any
 from contextlib import asynccontextmanager
 
@@ -16,19 +14,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# Setup Python paths
-sys.path.insert(0, str(Path(__file__).parent.parent))
-sys.path.insert(0, str(Path(__file__).parent / "Database"))
-sys.path.insert(0, str(Path(__file__).parent.parent / "Client"))
-
 # Load environment variables
 load_dotenv()
 
 from logger import setup_logger
-from health import HealthChecker
-from indexing import router as indexing_router
-from langchain_mcp_adapters.client import MultiServerMCPClient
+from .health import HealthChecker
+from .indexing import router as indexing_router
 from config import MCP_SERVERS, API_PORT, API_HOST, AGENT_RECURSION_LIMIT
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from Client.llm import llm
 from Client.agent import build_agent

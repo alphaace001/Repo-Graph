@@ -4,16 +4,12 @@ Provides tools for analyzing functions, classes, design patterns, code snippets,
 """
 
 import sys
-from pathlib import Path
-
-# Setup Python paths for local modules BEFORE any imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))  # Add KG-Assignment to path
-sys.path.insert(0, str(Path(__file__).parent))  # Add Analyst to path
-
+import os
 import json
 from fastmcp import FastMCP
+
 from logger import get_mcp_safe_logger, mcp_tool_logged, configure_mcp_logging
-from Utils.analysis_service import CodeAnalysisService
+from MCP.Analyst.Utils.analysis_service import CodeAnalysisService
 
 # Configure MCP-safe logging
 configure_mcp_logging()

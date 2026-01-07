@@ -1,12 +1,9 @@
 """
 Cypher query utilities for creating relationships in Neo4j graph.
 """
-import sys
-from pathlib import Path
 from typing import Dict, List
 
-sys.path.insert(0, str(Path(__file__).parent))
-from graph_operations import GraphOperations
+from MCP.Indexer.Utils.graph_operations import GraphOperations
 
 
 def create_import_relationships(

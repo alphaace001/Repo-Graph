@@ -2,25 +2,20 @@
 Main ingestion orchestrator - Coordinates the graph ingestion pipeline.
 """
 
+import os
 import logging
-import sys
-from pathlib import Path
+from dotenv import load_dotenv
 
-sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from Utils.utils import discover_py_files, convert_file_paths_to_modules
-from Utils.cypherquery_utils import create_import_relationships
-from Utils.file_processor import process_single_file
-from Utils.relationships import (
+from MCP.Indexer.Utils.utils import discover_py_files, convert_file_paths_to_modules
+from MCP.Indexer.Utils.cypherquery_utils import create_import_relationships
+from MCP.Indexer.Utils.file_processor import process_single_file
+from MCP.Indexer.Utils.relationships import (
     create_function_to_function_relationships,
     create_class_to_class_relationships,
 )
 
 from logger import LogContext, log_with_context
 from Database.Neo4j.initialise import graph, logger
-import os
-from dotenv import load_dotenv
 
 load_dotenv()
 BASE_PATH = os.getenv("BASE_PATH", "D:\\KGassign\\fastapi")

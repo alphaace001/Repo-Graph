@@ -3,9 +3,7 @@ Health Checker Module - Verifies Knowledge Graph and MCP Services Status
 """
 
 import os
-import sys
 import asyncio
-from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any
 
@@ -13,9 +11,6 @@ from neo4j import GraphDatabase
 from dotenv import load_dotenv
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_mcp_adapters.tools import load_mcp_tools
-
-# Setup Python paths
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from logger import setup_logger
 from config import (

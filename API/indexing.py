@@ -3,7 +3,6 @@ Indexing API Router - Endpoints for repository indexing with job tracking.
 """
 
 import os
-import sys
 import uuid
 import threading
 from datetime import datetime
@@ -11,18 +10,12 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-# Setup Python paths for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-sys.path.insert(0, str(Path(__file__).parent.parent / "MCP" / "Indexer"))
-sys.path.insert(0, str(Path(__file__).parent.parent / "MCP" / "Indexer" / "Tools"))
-sys.path.insert(0, str(Path(__file__).parent.parent / "MCP" / "Indexer" / "Utils"))
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 from logger import setup_logger
-from Tools.index_repo import ingest_all_files
+from MCP.Indexer.Tools.index_repo import ingest_all_files
 
 # Load environment variables
 load_dotenv()
@@ -34,10 +27,6 @@ logger = setup_logger(__name__)
 # Create router
 router = APIRouter(prefix="/api/index", tags=["Indexing"])
 
-
-# ============================================================================
-# Data Models
-# ============================================================================
 
 class IndexMode(str, Enum):
     """Indexing mode enumeration."""
@@ -72,14 +61,6 @@ class IndexResponse(BaseModel):
     message: str
 
 
-# class JobProgress(BaseModel):
-#     """Progress information for a job."""
-#     total_files: Optional[int] = None
-#     processed_files: Optional[int] = None
-#     success_count: Optional[int] = None
-#     error_count: Optional[int] = None
-
-
 class JobStatus(BaseModel):
     """Detailed job status model."""
     job_id: str
@@ -90,11 +71,6 @@ class JobStatus(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     error: Optional[str] = None
-
-
-# ============================================================================
-# Job Storage (In-Memory)
-# ============================================================================
 
 # Thread-safe job storage
 _jobs: dict[str, JobStatus] = {}
@@ -132,10 +108,6 @@ def create_job(path: str, mode: IndexMode) -> JobStatus:
     return job
 
 
-# ============================================================================
-# Indexing Worker
-# ============================================================================
-
 def run_indexing_job(job_id: str, full_path: str, mode: IndexMode):
     """Background worker to run indexing."""
     try:
@@ -145,10 +117,6 @@ def run_indexing_job(job_id: str, full_path: str, mode: IndexMode):
         if mode == IndexMode.FULL:
             # Full indexing: process all files
             ingest_all_files(full_path)
-        # else:
-        #     # Incremental: for now, same as full (placeholder for future enhancement)
-        #     # Future: detect changed files since last index and only process those
-        #     ingest_all_files(full_path)
 
         update_job(
             job_id,
@@ -167,10 +135,6 @@ def run_indexing_job(job_id: str, full_path: str, mode: IndexMode):
         )
         logger.error(f"Indexing job {job_id} failed: {error_msg}")
 
-
-# ============================================================================
-# API Endpoints
-# ============================================================================
 
 @router.post("/index", response_model=IndexResponse)
 async def trigger_index(request: IndexRequest):

@@ -5,7 +5,7 @@ from langchain_core.messages import AnyMessage, ToolMessage, AIMessage, BaseMess
 from langgraph.graph import START, StateGraph
 from langgraph.prebuilt import tools_condition, ToolNode
 
-from llm import llm
+from .llm import llm
 
 
 class AgentState(TypedDict):

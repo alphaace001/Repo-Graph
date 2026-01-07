@@ -1,11 +1,8 @@
 """
 Relationships ingestion module - Creates relationships between entities in the graph.
 """
-import sys
-from pathlib import Path
 from typing import Dict, List
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import setup_logger
 
 logger = setup_logger(__name__)

@@ -3,11 +3,8 @@ Neo4j graph operations service - Single Responsibility Principle.
 Centralizes all graph query logic.
 """
 
-import sys
-from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from logger import setup_logger
 
 logger = setup_logger(__name__)

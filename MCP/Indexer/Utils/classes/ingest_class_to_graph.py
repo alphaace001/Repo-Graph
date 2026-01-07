@@ -1,11 +1,5 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from logger import setup_logger
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from graph_operations import GraphOperations
+from MCP.Indexer.Utils.graph_operations import GraphOperations
 
 logger = setup_logger(__name__)
 
