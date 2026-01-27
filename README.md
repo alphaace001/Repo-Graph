@@ -1,4 +1,4 @@
-# Knowledge Graph Assignment
+# Repo Graph 
 
 A FastAPI-based Knowledge Graph system with MCP (Model Context Protocol) services for code analysis, graph querying, and indexing.
 
