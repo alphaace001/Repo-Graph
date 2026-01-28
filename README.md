@@ -2,10 +2,11 @@
 
 A FastAPI-based Knowledge Graph system with MCP (Model Context Protocol) services for code analysis, graph querying, and indexing.
 
+<!-- 
 ## 🎬 Demo Video
 
-[Watch the Demo Video](https://drive.google.com/file/d/1HDMWxYffqYZF6ciWjLX1TNpgo755vnNq/view?usp=sharing)
-
+// [Watch the Demo Video](https://drive.google.com/file/d/1HDMWxYffqYZF6ciWjLX1TNpgo755vnNq/view?usp=sharing)
+-->
 <details>
 <summary><strong>📊 Approach: Knowledge Graph Schema</strong></summary>
 
